@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2024-03-27T22:40:58+01:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">My interesting researches</title><subtitle>I share what I find interesting here..</subtitle><entry><title type="html">Using libFuzzer with linux kernel!</title><link href="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html" rel="alternate" type="text/html" title="Using libFuzzer with linux kernel!" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html"><![CDATA[<p>You’ll find this post in your <code class="language-plaintext highlighter-rouge">_posts</code> directory. Go ahead and edit it and re-build the site to see your changes. You can rebuild the site in many different ways, but the most common way is to run <code class="language-plaintext highlighter-rouge">jekyll serve</code>, which launches a web server and auto-regenerates your site when a file is updated.</p>
+
+<p>To add new posts, simply add a file in the <code class="language-plaintext highlighter-rouge">_posts</code> directory that follows the convention <code class="language-plaintext highlighter-rouge">YYYY-MM-DD-name-of-post.ext</code> and includes the necessary front matter. Take a look at the source for this post to get an idea about how it works.</p>
+
+<p>Jekyll also offers powerful support for code snippets:</p>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell"><span class="c"># Use a base image with Ubuntu</span>
+FROM ubuntu:latest
+
+<span class="c"># Update package lists</span>
+RUN apt-get update
+
+<span class="c"># Install necessary packages</span>
+RUN apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="se">\</span>
+        build-essential <span class="se">\</span>
+        qemu-system-x86 <span class="se">\</span>
+        libpython2.7-dev <span class="se">\</span>
+        gettext <span class="se">\</span>
+        libelf-dev <span class="se">\</span>
+        git <span class="se">\ </span>
+        flex <span class="se">\</span>
+        bison <span class="se">\</span>
+        bc <span class="se">\</span>
+        libssl-dev <span class="se">\</span>
+        ncurses-dev <span class="se">\</span>
+        python3-pip <span class="se">\</span>
+        python-setuptools <span class="se">\</span>
+        busybox-static <span class="se">\</span>
+        qemu-kvm <span class="se">\ </span>
+        clang <span class="se">\</span>
+        protobuf-compiler <span class="se">\</span>
+        libprotobuf-dev <span class="se">\</span>
+        binutils <span class="se">\</span>
+        cmake <span class="se">\</span>
+        ninja-build <span class="se">\</span>
+	liblzma-dev <span class="se">\</span>
+	libz-dev <span class="se">\</span>
+	pkg-config <span class="se">\</span>
+	autoconf <span class="se">\</span>
+	libtool
+
+<span class="c"># Cleanup</span>
+RUN apt-get clean <span class="o">&amp;&amp;</span> <span class="nb">rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/<span class="k">*</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="cp">#include</span> <span class="cpf">&lt;linux/sched/signal.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;linux/sched.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;asm/siginfo.h&gt;</span><span class="cp">
+</span>
+<span class="kt">void</span> <span class="nf">send_sigsegv_to_process</span><span class="p">(</span><span class="kt">void</span><span class="o">*</span>  <span class="n">access_addr</span> <span class="p">);</span>
+<span class="kt">void</span> <span class="nf">send_sigsegv_to_process</span><span class="p">(</span><span class="kt">void</span><span class="o">*</span>  <span class="n">access_addr</span> <span class="p">)</span> <span class="p">{</span>
+
+        <span class="n">kernel_siginfo_t</span> <span class="n">info</span><span class="p">;</span>
+        <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">info</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">kernel_siginfo_t</span><span class="p">));</span>
+        <span class="n">info</span><span class="p">.</span><span class="n">si_signo</span> <span class="o">=</span> <span class="n">SIGSEGV</span><span class="p">;</span>  <span class="c1">// Signal type</span>
+        <span class="n">info</span><span class="p">.</span><span class="n">si_pid</span> <span class="o">=</span> <span class="n">current</span><span class="o">-&gt;</span><span class="n">pid</span><span class="p">;</span>  <span class="c1">// Process ID to send the signal to</span>
+        <span class="n">info</span><span class="p">.</span><span class="n">si_code</span> <span class="o">=</span> <span class="n">SEGV_MAPERR</span><span class="p">;</span>   <span class="c1">// Signal code for a memory access error</span>
+        <span class="n">info</span><span class="p">.</span><span class="n">si_addr</span> <span class="o">=</span> <span class="n">access_addr</span><span class="p">;</span>          <span class="c1">// Address that caused the fault</span>
+        <span class="n">send_sig_info</span><span class="p">(</span><span class="n">SIGSEGV</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">info</span><span class="p">,</span> <span class="n">current</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+
+<span class="k">static</span> <span class="kt">void</span> <span class="n">print_error_description</span><span class="p">(</span><span class="k">struct</span> <span class="nc">kasan_report_info</span> <span class="o">*</span><span class="n">info</span><span class="p">)</span>
+<span class="p">{</span>
+
+        <span class="c1">//debugfs_create_dir("panic_meysam", NULL);</span>
+        <span class="n">send_sigsegv_to_process</span><span class="p">((</span><span class="kt">void</span><span class="o">*</span><span class="p">)</span><span class="n">info</span><span class="o">-&gt;</span><span class="n">access_addr</span><span class="p">);</span>
+
+        <span class="n">pr_err</span><span class="p">(</span><span class="s">"BUG: KASAN: %s in %pS</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">info</span><span class="o">-&gt;</span><span class="n">bug_type</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="n">info</span><span class="o">-&gt;</span><span class="n">ip</span><span class="p">);</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">info</span><span class="o">-&gt;</span><span class="n">type</span> <span class="o">!=</span> <span class="n">KASAN_REPORT_ACCESS</span><span class="p">)</span> <span class="p">{</span>
+                <span class="n">pr_err</span><span class="p">(</span><span class="s">"Free of addr %px by task %s/%d</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span>
+                        <span class="n">info</span><span class="o">-&gt;</span><span class="n">access_addr</span><span class="p">,</span> <span class="n">current</span><span class="o">-&gt;</span><span class="n">comm</span><span class="p">,</span> <span class="n">task_pid_nr</span><span class="p">(</span><span class="n">current</span><span class="p">));</span>
+                <span class="k">return</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">info</span><span class="o">-&gt;</span><span class="n">access_size</span><span class="p">)</span>
+                <span class="n">pr_err</span><span class="p">(</span><span class="s">"%s of size %zu at addr %px by task %s/%d</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span>
+                        <span class="n">info</span><span class="o">-&gt;</span><span class="n">is_write</span> <span class="o">?</span> <span class="s">"Write"</span> <span class="o">:</span> <span class="s">"Read"</span><span class="p">,</span> <span class="n">info</span><span class="o">-&gt;</span><span class="n">access_size</span><span class="p">,</span>
+                        <span class="n">info</span><span class="o">-&gt;</span><span class="n">access_addr</span><span class="p">,</span> <span class="n">current</span><span class="o">-&gt;</span><span class="n">comm</span><span class="p">,</span> <span class="n">task_pid_nr</span><span class="p">(</span><span class="n">current</span><span class="p">));</span>
+        <span class="k">else</span>
+                <span class="n">pr_err</span><span class="p">(</span><span class="s">"%s at addr %px by task %s/%d</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span>
+                        <span class="n">info</span><span class="o">-&gt;</span><span class="n">is_write</span> <span class="o">?</span> <span class="s">"Write"</span> <span class="o">:</span> <span class="s">"Read"</span><span class="p">,</span>
+                        <span class="n">info</span><span class="o">-&gt;</span><span class="n">access_addr</span><span class="p">,</span> <span class="n">current</span><span class="o">-&gt;</span><span class="n">comm</span><span class="p">,</span> <span class="n">task_pid_nr</span><span class="p">(</span><span class="n">current</span><span class="p">));</span>
+<span class="p">}</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="cp">#include</span> <span class="cpf">&lt;cmath&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;iostream&gt;</span><span class="cp">
+</span>
+
+<span class="cp">#include</span> <span class="cpf">"examples/libfuzzer/libfuzzer_example.pb.h"</span><span class="cp">
+#include</span> <span class="cpf">"port/protobuf.h"</span><span class="cp">
+#include</span> <span class="cpf">"src/libfuzzer/libfuzzer_macro.h"</span><span class="cp">
+#include</span> <span class="cpf">&lt;errno.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;fcntl.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;linux/bpf.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;memory.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdarg.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdint.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;sys/ioctl.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;sys/mman.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;sys/stat.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;sys/syscall.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;sys/types.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp">
+</span>
+<span class="kt">void</span> <span class="nf">fail</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">msg</span><span class="p">,</span> <span class="p">...);</span>
+<span class="kt">void</span> <span class="nf">cover_start</span><span class="p">();</span>
+<span class="kt">void</span> <span class="nf">cover_stop</span><span class="p">();</span>
+
+
+<span class="cp">#define KCOV_COVER_SIZE (256 &lt;&lt; 10)
+#define KCOV_TRACE_PC 0
+#define KCOV_INIT_TRACE64 _IOR('c', 1, uint64_t)
+#define KCOV_ENABLE _IO('c', 100)
+</span>
+<span class="n">__attribute__</span><span class="p">((</span><span class="n">section</span><span class="p">(</span><span class="s">"__libfuzzer_extra_counters"</span><span class="p">)))</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">libfuzzer_coverage</span><span class="p">[</span><span class="mi">32</span> <span class="o">&lt;&lt;</span> <span class="mi">10</span><span class="p">];</span>
+<span class="kt">uint64_t</span><span class="o">*</span> <span class="n">kcov_data</span><span class="p">;</span>
+
+
+
+
+<span class="k">extern</span> <span class="s">"C"</span> <span class="kt">int</span> <span class="nf">LLVMFuzzerInitialize</span><span class="p">(</span><span class="kt">int</span> <span class="o">*</span><span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">***</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	
+	<span class="kt">int</span> <span class="n">kcov</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="s">"/sys/kernel/debug/kcov"</span><span class="p">,</span> <span class="n">O_RDWR</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">kcov</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">fail</span><span class="p">(</span><span class="s">"open of /sys/kernel/debug/kcov failed"</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">kcov</span><span class="p">,</span> <span class="n">KCOV_INIT_TRACE64</span><span class="p">,</span> <span class="n">KCOV_COVER_SIZE</span><span class="p">))</span>
+		<span class="n">fail</span><span class="p">(</span><span class="s">"cover init trace write failed"</span><span class="p">);</span>
+	<span class="n">kcov_data</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)</span><span class="n">mmap</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">KCOV_COVER_SIZE</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">kcov_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+				    <span class="n">PROT_READ</span> <span class="o">|</span> <span class="n">PROT_WRITE</span><span class="p">,</span> <span class="n">MAP_SHARED</span><span class="p">,</span> <span class="n">kcov</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">kcov_data</span> <span class="o">==</span> <span class="n">MAP_FAILED</span><span class="p">)</span>
+		<span class="n">fail</span><span class="p">(</span><span class="s">"cover mmap failed"</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">kcov</span><span class="p">,</span> <span class="n">KCOV_ENABLE</span><span class="p">,</span> <span class="n">KCOV_TRACE_PC</span><span class="p">))</span>
+		<span class="n">fail</span><span class="p">(</span><span class="s">"cover enable write trace failed"</span><span class="p">);</span>
+	<span class="n">close</span><span class="p">(</span><span class="n">kcov</span><span class="p">);</span>
+
+ 	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+
+
+<span class="kt">void</span> <span class="n">cover_start</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="n">__atomic_store_n</span><span class="p">(</span><span class="o">&amp;</span><span class="n">kcov_data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">__ATOMIC_RELAXED</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="n">cover_stop</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="kt">uint64_t</span> <span class="n">ncov</span> <span class="o">=</span> <span class="n">__atomic_load_n</span><span class="p">(</span><span class="o">&amp;</span><span class="n">kcov_data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">__ATOMIC_RELAXED</span><span class="p">);</span>
+	
+	
+	
+	<span class="k">if</span> <span class="p">(</span><span class="n">ncov</span> <span class="o">&gt;=</span> <span class="n">KCOV_COVER_SIZE</span><span class="p">)</span>
+		<span class="n">fail</span><span class="p">(</span><span class="s">"too much cover: %llu"</span><span class="p">,</span> <span class="n">ncov</span><span class="p">);</span>
+	<span class="k">for</span> <span class="p">(</span><span class="kt">uint64_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">ncov</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+		<span class="kt">uint64_t</span> <span class="n">pc</span> <span class="o">=</span> <span class="n">__atomic_load_n</span><span class="p">(</span><span class="o">&amp;</span><span class="n">kcov_data</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">__ATOMIC_RELAXED</span><span class="p">);</span>
+<span class="c1">//	        printf("0x%lx\n", kcov_data[i + 1]);</span>
+		<span class="n">libfuzzer_coverage</span><span class="p">[</span><span class="n">pc</span> <span class="o">%</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">libfuzzer_coverage</span><span class="p">)]</span><span class="o">++</span><span class="p">;</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+
+
+
+<span class="kt">void</span> <span class="n">fail</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">msg</span><span class="p">,</span> <span class="p">...)</span>
+<span class="p">{</span>
+	<span class="kt">int</span> <span class="n">e</span> <span class="o">=</span> <span class="n">errno</span><span class="p">;</span>
+	<span class="kt">va_list</span> <span class="n">args</span><span class="p">;</span>
+	<span class="n">va_start</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">msg</span><span class="p">);</span>
+	<span class="n">vfprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">args</span><span class="p">);</span>
+	<span class="n">va_end</span><span class="p">(</span><span class="n">args</span><span class="p">);</span>
+	<span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">" (errno %d)</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">e</span><span class="p">);</span>
+	<span class="n">_exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">DEFINE_PROTO_FUZZER</span><span class="p">(</span><span class="k">const</span> <span class="n">libfuzzer_example</span><span class="o">::</span><span class="n">Msg</span><span class="o">&amp;</span> <span class="n">message</span><span class="p">)</span> <span class="p">{</span>
+<span class="n">protobuf_mutator</span><span class="o">::</span><span class="n">protobuf</span><span class="o">::</span><span class="n">FileDescriptorProto</span> <span class="n">file</span><span class="p">;</span>
+
+        <span class="n">cover_start</span><span class="p">();</span>
+         <span class="c1">// std::cerr &lt;&lt; message.DebugString() &lt;&lt; "\n";	</span>
+        <span class="c1">// Emulate a bug.</span>
+        <span class="kt">int</span> <span class="n">fd</span> <span class="o">=</span> <span class="n">syscall</span><span class="p">(</span><span class="n">SYS_open</span><span class="p">,</span> <span class="s">"example.txt"</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">message</span><span class="p">.</span><span class="n">sample_int</span><span class="p">());</span>
+        <span class="n">syscall</span><span class="p">(</span><span class="n">SYS_close</span><span class="p">,</span><span class="n">fd</span><span class="p">);</span>
+        <span class="n">cover_stop</span><span class="p">();</span>
+<span class="p">}</span></code></pre></figure>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[You’ll find this post in your _posts directory. Go ahead and edit it and re-build the site to see your changes. You can rebuild the site in many different ways, but the most common way is to run jekyll serve, which launches a web server and auto-regenerates your site when a file is updated.]]></summary></entry></feed>
