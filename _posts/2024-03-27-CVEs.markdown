@@ -4,123 +4,30 @@ title:  "CVEs and reported Vulnerabilities"
 date:   2024-03-27 22:27:59 +0100
 categories: fuzzing
 ---
-
-## CVE-2016-0087
-
-Windows kernel Privilege escalation Vulnerability - Type Confusion
-
-## CVE-2016-0040
-
-Windows kernel Privilege escalation Vulnerability - Uninitialized pointer
-
-[GitHub Link](https://github.com/de7ec7ed/CVE-2016-0040)
-
-[Microsoft Security Blog](https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/)
-
-## CVE-2016-7627
-
-A null pointer dereference in iOS/OSX
-
-## CVE-2017-0167
-
-Microsoft Windows Kernel Information Disclosure Vulnerability, bypassing ASLR
-
-## Microsoft Jet Database Engine Remote Code Execution Vulnerabilities
-
-CVE-2019-1250, CVE-2020-0992, CVE-2020-1008, CVE-2020-0889
-
-## CVE-2020-0634
-
-Microsoft Windows CLFS Use-After-Free Privilege Escalation Vulnerability
-
-[Zero Day Initiative Advisory](https://www.zerodayinitiative.com/advisories/ZDI-20-125/)
-
-## CVE-2020-0961
-
-Microsoft Office Access Connectivity Engine Remote Code Execution Vulnerability
-
-## CVE-2020-17395
-
-Parallels Desktop integer underflow VM escape Vulnerability
-
-[Zero Day Initiative Advisory](https://www.zerodayinitiative.com/advisories/ZDI-20-1013/)
-
-## CVE-2022-34890
-
-This vulnerability allows local attackers to disclose sensitive information on affected installations of Parallels Desktop.
-
-[Zero Day Initiative Advisory](https://www.zerodayinitiative.com/advisories/ZDI-22-941/)
-
-## CVE-2022-22587
-
-iOS kernel Memory Corruption. Impact: A malicious application may be able to execute arbitrary code with kernel privileges.
-
-[Apple Support](https://support.apple.com/en-us/HT213053)
-
-## Privilege escalation Vulnerability in Win10Pcap driver
-
-[Download Link](https://www.win10pcap.org/download/)
-
-## CVE-2023-32384
-
-A buffer overflow in iOS ImageIO. Impact: Processing an image may lead to arbitrary code execution.
-
-[Apple Support](https://support.apple.com/en-us/HT213758)
-
-## CVE-2023-23519
-
-[Apple Support](https://support.apple.com/en-us/HT213599)
-
-## CVE-2023-32372
-
-An out-of-bounds read in iOS ImageIO.
-
-[Apple Support](https://support.apple.com/en-us/HT213758)
-
-## CVE-2023-27929
-
-An out-of-bounds read in iOS ImageIO.
-
-[Apple Support](https://support.apple.com/en-us/HT213670)
-
-## CVE-2023-27948
-
-An out-of-bounds read was addressed with improved input validation.
-
-[Apple Support](https://support.apple.com/en-us/HT213670)
-
-## CVE-2023-27947
-
-An out-of-bounds read was addressed with improved input validation.
-
-[Apple Support](https://support.apple.com/en-us/HT213670)
-
-## CVE-2023-21643, CVE-2023-21651
-
-Qualcomm Security Bulletins
-
-[Security Bulletin](https://docs.qualcomm.com/product/publicresources/securitybulletin/august-2023-bulletin.html)
-
-## CVE-2023-42899
-
-iOS,MacOS Impact: Processing an image may lead to arbitrary code execution.
-
-[Apple Support](https://support.apple.com/en-gb/HT214035)
-
-## CVE-2023-42865
-
-iOS,MacOS Impact: Processing an image may lead to arbitrary code execution.
-
-[Apple Support](https://support.apple.com/en-ng/HT213670)
-
-## CVE-2023-42862
-
-iOS,MacOS Impact: Processing an image may lead to arbitrary code execution.
-
-[Apple Support](https://support.apple.com/en-ng/HT213670)
-
-## CVE-2024-23264
-
-iOS,MacOS Impact: An application may be able to read restricted memory
-
-[Apple Support](https://support.apple.com/de-de/HT214081)
+| CVE              | Description                                                                      | Source                                        |
+|------------------|----------------------------------------------------------------------------------|-----------------------------------------------|
+| CVE-2016-0087    | Windows kernel Privilege escalation Vulnerability - Type Confusion               | GitHub Link, Microsoft Security Blog         |
+| CVE-2016-0040    | Windows kernel Privilege escalation Vulnerability - Uninitialized pointer        | GitHub Link, Microsoft Security Blog         |
+| CVE-2016-7627    | A null pointer dereference in iOS/OSX                                            |                                               |
+| CVE-2017-0167    | Microsoft Windows Kernel Information Disclosure Vulnerability, bypassing ASLR   | Microsoft Security Blog                      |
+| CVE-2019-1250    | Microsoft Jet Database Engine Remote Code Execution Vulnerabilities               | Microsoft Security Blog                      |
+| CVE-2020-0992    | Microsoft Jet Database Engine Remote Code Execution Vulnerabilities               | Microsoft Security Blog                      |
+| CVE-2020-1008    | Microsoft Jet Database Engine Remote Code Execution Vulnerabilities               | Microsoft Security Blog                      |
+| CVE-2020-0889    | Microsoft Jet Database Engine Remote Code Execution Vulnerabilities               | Microsoft Security Blog                      |
+| CVE-2020-0634    | Microsoft Windows CLFS Use-After-Free Privilege Escalation Vulnerability          | Zero Day Initiative Advisory                 |
+| CVE-2020-0961    | Microsoft Office Access Connectivity Engine Remote Code Execution Vulnerability  | Zero Day Initiative Advisory                 |
+| CVE-2020-17395   | Parallels Desktop integer underflow VM escape Vulnerability                      | Zero Day Initiative Advisory                 |
+| CVE-2022-34890   | Local attackers disclose sensitive information on Parallels Desktop              | Zero Day Initiative Advisory                 |
+| CVE-2022-22587   | iOS kernel Memory Corruption. Impact: Arbitrary code execution with kernel privileges | Apple Support                        |
+| CVE-2023-32384   | Buffer overflow in iOS ImageIO. Impact: Arbitrary code execution                  | Apple Support                                |
+| CVE-2023-23519   |                                                                                    | Apple Support                                |
+| CVE-2023-32372   | Out-of-bounds read in iOS ImageIO.                                                | Apple Support                                |
+| CVE-2023-27929   | Out-of-bounds read in iOS ImageIO.                                                | Apple Support                                |
+| CVE-2023-27948   | Out-of-bounds read addressed with improved input validation.                       | Apple Support                                |
+| CVE-2023-27947   | Out-of-bounds read addressed with improved input validation.                       | Apple Support                                |
+| CVE-2023-21643   | Qualcomm Security Bulletins                                                       | Security Bulletin                            |
+| CVE-2023-21651   | Qualcomm Security Bulletins                                                       | Security Bulletin                            |
+| CVE-2023-42899   | Processing an image may lead to arbitrary code execution in iOS, MacOS            | Apple Support                                |
+| CVE-2023-42865   | Processing an image may lead to arbitrary code execution in iOS, MacOS            | Apple Support                                |
+| CVE-2023-42862   | Processing an image may lead to arbitrary code execution in iOS, MacOS            | Apple Support                                |
+| CVE-2024-23264   | An application may be able to read restricted memory in iOS, MacOS                | Apple Support                                |
