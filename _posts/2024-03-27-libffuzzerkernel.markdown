@@ -72,10 +72,9 @@ in order to provied kenrnel code coverage to libfuzzer we can use <mark>__libfuz
 and its documentation in [kernel website](https://docs.kernel.org/dev-tools/kcov.html)
 
 
-I used wanted to have Structure-Aware kernel Fuzzing with libFuzzer so I deciede to use libprotobuf-mutator.
-which has show is very powerfull 
-almost every kernel attack vector is Stateful APIs. you can't just feed raw buffer to it. 
-
+almost every kernel attack vector is Stateful APIs. you can't just feed raw buffer to it. so we have to use Structure-Aware Fuzzing, so I deciede to use libprotobuf-mutator.
+which has show is very powerfull tool.
+ 
 * [poc2018](https://powerofcommunity.net/poc2018/ned.pdf)
 * [project zero blog](https://googleprojectzero.blogspot.com/2019/12/sockpuppet-walkthrough-of-kernel.html)
 * [chromium](https://chromium.googlesource.com/chromium/src/+/main/testing/libfuzzer/libprotobuf-mutator.md)
