@@ -244,7 +244,9 @@ cd linux
  ../virtme/virtme-run --kimg arch/x86/boot/bzImage --rwdir ../testfuzz/ --qemu-opts  -m 2G -smp 2 -enable-kvm
 {% endhighlight %}
 
-
+what is next step?
+add APIs and system calls to proto file and cover them in DEFINE_PROTO_FUZZER.
+  
 [jekyll-docs]: https://jekyllrb.com/docs/home
 [jekyll-gh]:   https://github.com/jekyll/jekyll
 [jekyll-talk]: https://talk.jekyllrb.com/
