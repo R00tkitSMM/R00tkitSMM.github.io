@@ -67,8 +67,7 @@ then build linux kernel with KCOV and KASAN and some other flags needed by virtm
 {% endhighlight %}
     
 
-in order to provied kenrnel code coverage to libfuzzer we can use __libfuzzer_extra_counters, you can see a good example  in [syzkaller]
-(https://github.com/google/syzkaller/blob/master/tools/kcovfuzzer/kcovfuzzer.c)
+in order to provied kenrnel code coverage to libfuzzer we can use __libfuzzer_extra_counters, you can see a good example  in [syzkaller](https://github.com/google/syzkaller/blob/master/tools/kcovfuzzer/kcovfuzzer.c)
 and its documentation in [kernel website](https://docs.kernel.org/dev-tools/kcov.html)
 
 
