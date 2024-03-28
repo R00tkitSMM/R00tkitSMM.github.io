@@ -184,11 +184,11 @@ protobuf_mutator::protobuf::FileDescriptorProto file;
 
 for test you can use [SockFuzzer](https://github.com/googleprojectzero/SockFuzzer/tree/main) to fuzz network stack. 
 
-the interesting parts begin, now if the kasan panics, libfuzzer dosen't have a way to know it and will discard the sample,so to save the sample that triggered the crash we have to tell to libfuzzer that kernel has paniced.
+The intriguing phase starts. If a kasan panics, libfuzzer lacks awareness and will dispose of the sample. Therefore, to preserve the triggering sample of the crash, we must inform libfuzzer about the kernel panic.
 
-At first I used others ways to let the fuzzer know about panic but I decied to mimic SIGSEGV and send signal to libfuzzer when there is a kasan panic in kernel. when libfuzzer gets this signal it will save the sample and quit.
-
-so add send_sigsegv_to_process function to print_error_description in /mm/kasan/report.c file.
+Initially, I explored alternative methods to notify the fuzzer about the panic. However, I opted to simulate SIGSEGV and dispatch a signal to libfuzzer whenever a kasan panic occurs in the kernel. Upon receiving this signal, libfuzzer will preserve the sample and terminate.
+so we have to modify the linux kernel and build it once more.
+add send_sigsegv_to_process function to print_error_description in /mm/kasan/report.c.
 
 make sure 
 "kernel.panic_on_warn" and 
