@@ -3,21 +3,21 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
-<title>Using libFuzzer with linux kernel! | My interesting researches</title>
+<title>Structure-Aware linux kernel Fuzzing with libFuzzer | My interesting researches</title>
 <meta name="generator" content="Jekyll v3.9.0" />
-<meta property="og:title" content="Using libFuzzer with linux kernel!" />
+<meta property="og:title" content="Structure-Aware linux kernel Fuzzing with libFuzzer" />
 <meta property="og:locale" content="en_US" />
-<meta name="description" content="I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer, my final goal was to be able to build kernel without spending too much on building root file system." />
-<meta property="og:description" content="I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer, my final goal was to be able to build kernel without spending too much on building root file system." />
+<meta name="description" content="I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer and boot the kernel without spending too much on building root file system." />
+<meta property="og:description" content="I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer and boot the kernel without spending too much on building root file system." />
 <link rel="canonical" href="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html" />
 <meta property="og:url" content="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html" />
 <meta property="og:site_name" content="My interesting researches" />
 <meta property="og:type" content="article" />
 <meta property="article:published_time" content="2024-03-27T22:27:59+01:00" />
 <meta name="twitter:card" content="summary" />
-<meta property="twitter:title" content="Using libFuzzer with linux kernel!" />
+<meta property="twitter:title" content="Structure-Aware linux kernel Fuzzing with libFuzzer" />
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-03-27T22:27:59+01:00","datePublished":"2024-03-27T22:27:59+01:00","description":"I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer, my final goal was to be able to build kernel without spending too much on building root file system.","headline":"Using libFuzzer with linux kernel!","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html"},"url":"http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html"}</script>
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-03-27T22:27:59+01:00","datePublished":"2024-03-27T22:27:59+01:00","description":"I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer and boot the kernel without spending too much on building root file system.","headline":"Structure-Aware linux kernel Fuzzing with libFuzzer","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html"},"url":"http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html"}</script>
 <!-- End Jekyll SEO tag -->
 <link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="My interesting researches" /></head>
 <body><header class="site-header" role="banner">
@@ -40,17 +40,16 @@
         <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
 
   <header class="post-header">
-    <h1 class="post-title p-name" itemprop="name headline">Using libFuzzer with linux kernel!</h1>
+    <h1 class="post-title p-name" itemprop="name headline">Structure-Aware linux kernel Fuzzing with libFuzzer</h1>
     <p class="post-meta">
       <time class="dt-published" datetime="2024-03-27T22:27:59+01:00" itemprop="datePublished">Mar 27, 2024
       </time></p>
   </header>
 
   <div class="post-content e-content" itemprop="articleBody">
-    <p>I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer,
-my final goal was to be able to build kernel without spending too much on building root file system.</p>
+    <p>I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer and boot the kernel without spending too much on building root file system.</p>
 
-<p>after some googling I found a very interesting blog post by [ cloudflare] (https://blog.cloudflare.com/a-gentle-introduction-to-linux-kernel-fuzzing/ )</p>
+<p>after some googling I found a very interesting blog post by <a href="https://blog.cloudflare.com/a-gentle-introduction-to-linux-kernel-fuzzing/">cloudflare</a></p>
 
 <p>they have had answered my second question on how to boot newly built linux kernel with current root file system with 
 <a href="https://github.com/amluto/virtme">virtme</a>
@@ -64,9 +63,8 @@ clone virtme and linux kenel</p>
 git clone <span class="nt">--depth</span> 1 https://github.com/amluto/virtme.git
 <span class="nb">cd </span>linux</code></pre></figure>
 
-<p>you have to enable kcov for all or specific file you want</p>
-
-<p>Enable KCOV in all “fs” subdirectory:</p>
+<p>you have to enable kcov for all targets with KCOV_INSTRUMENT_ALL or specific makefile.
+Enable KCOV in all “fs” subdirectory:</p>
 
 <figure class="highlight"><pre><code class="language-shell" data-lang="shell">find <span class="s2">"fs"</span> <span class="nt">-name</span> Makefile <span class="se">\</span>
     | xargs <span class="nt">-L1</span> <span class="nt">-I</span> <span class="o">{}</span> bash <span class="nt">-c</span> <span class="s1">'echo "KCOV_INSTRUMENT := y" &gt;&gt; {}'</span></code></pre></figure>
@@ -220,9 +218,11 @@ Protobufs provide a convenient way to serialize structured data, and LPM provide
 
 <p>build the libprotobuf-mutator</p>
 
-<p>the interesting parts begin, now if the kasan panics, libfuzzer dosen’t have a way to know it and it will discard the sample,so to save the sample that triggered the crash we have to tell to libfuzzer that kernel has paniced.</p>
+<p>the interesting parts begin, now if the kasan panics, libfuzzer dosen’t have a way to know it and will discard the sample,so to save the sample that triggered the crash we have to tell to libfuzzer that kernel has paniced.</p>
 
-<p>At first I used others ways to let the fuzzer know about panic but I decied to mimic SIGSEGV and send signal to libfuzzer when there is a kasan panic in kernel. add send_sigsegv_to_process function to print_error_description in /mm/kasan/report.c</p>
+<p>At first I used others ways to let the fuzzer know about panic but I decied to mimic SIGSEGV and send signal to libfuzzer when there is a kasan panic in kernel. when libfuzzer gets this signal it will save the sample and quit.</p>
+
+<p>so add send_sigsegv_to_process function to print_error_description in /mm/kasan/report.c file.</p>
 
 <p>make sure 
 “kernel.panic_on_warn” and 
@@ -268,11 +268,10 @@ are set to “0”</p>
                         <span class="n">info</span><span class="o">-&gt;</span><span class="n">access_addr</span><span class="p">,</span> <span class="n">current</span><span class="o">-&gt;</span><span class="n">comm</span><span class="p">,</span> <span class="n">task_pid_nr</span><span class="p">(</span><span class="n">current</span><span class="p">));</span>
 <span class="p">}</span></code></pre></figure>
 
-<p>now you can boot the new kernel and run the fuzzer with</p>
+<p>copy libprotobuf example file to testfuzz. now you can boot the new kernel and run the fuzzer with</p>
 
-<figure class="highlight"><pre><code class="language-shell" data-lang="shell"> ../virtme/virtme-run <span class="nt">--kimg</span> <span class="nb">arch</span>/x86/boot/bzImage <span class="nt">--rwdir</span> ../testfuzz/ <span class="nt">--qemu-opts</span>  <span class="nt">-m</span> 2G <span class="nt">-smp</span> 2 <span class="nt">-enable-kvm</span></code></pre></figure>
-
-<p>so if the fuzzer triggers a panic it will tell the fuzzer and libfuzzer will save the sample into testfuzz, which is where i have copied my fuzzer.</p>
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell"><span class="nb">cd </span>linux
+ ../virtme/virtme-run <span class="nt">--kimg</span> <span class="nb">arch</span>/x86/boot/bzImage <span class="nt">--rwdir</span> ../testfuzz/ <span class="nt">--qemu-opts</span>  <span class="nt">-m</span> 2G <span class="nt">-smp</span> 2 <span class="nt">-enable-kvm</span></code></pre></figure>
 
 
   </div><a class="u-url" href="/fuzzing/2024/03/27/libffuzzerkernel-copy.html" hidden></a>

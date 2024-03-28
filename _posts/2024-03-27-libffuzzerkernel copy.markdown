@@ -1,7 +1,7 @@
 ---
 layout: post
-title:  "Using libFuzzer with linux kernel!"
-date:   2024-03-27 22:27:59 +0100
+title: "Structure-Aware linux kernel Fuzzing with libFuzzer"
+date: 2024-03-27 22:27:59 +0100
 categories: fuzzing
 ---
 

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2024-03-28T11:15:54+01:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">My interesting researches</title><subtitle>I share what I find interesting here..</subtitle><entry><title type="html">CVEs and reported vulnerabilities</title><link href="http://localhost:4000/fuzzing/2024/03/27/CVEs.html" rel="alternate" type="text/html" title="CVEs and reported vulnerabilities" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/CVEs</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/CVEs.html"><![CDATA[<p>Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/"> Microsoft’s blog post</a></p>
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2024-03-28T11:24:04+01:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">My interesting researches</title><subtitle>I share what I find interesting here..</subtitle><entry><title type="html">CVEs and reported vulnerabilities</title><link href="http://localhost:4000/fuzzing/2024/03/27/CVEs.html" rel="alternate" type="text/html" title="CVEs and reported vulnerabilities" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/CVEs</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/CVEs.html"><![CDATA[<p>Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/"> Microsoft’s blog post</a></p>
 
 <p>the CVE-2022-22587 vulnerability also has collision with in the wild exploits. read more about info
 Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://thehackernews.com/2022/12/new-actively-exploited-zero-day.html"> thehackernews</a></p>
@@ -138,10 +138,9 @@ Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016
       <td>Apple Support</td>
     </tr>
   </tbody>
-</table>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in Microsoft’s blog post]]></summary></entry><entry><title type="html">Using libFuzzer with linux kernel!</title><link href="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html" rel="alternate" type="text/html" title="Using libFuzzer with linux kernel!" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel%20copy</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html"><![CDATA[<p>I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer,
-my final goal was to be able to build kernel without spending too much on building root file system.</p>
+</table>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in Microsoft’s blog post]]></summary></entry><entry><title type="html">Structure-Aware linux kernel Fuzzing with libFuzzer</title><link href="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html" rel="alternate" type="text/html" title="Structure-Aware linux kernel Fuzzing with libFuzzer" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel%20copy</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html"><![CDATA[<p>I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer and boot the kernel without spending too much on building root file system.</p>
 
-<p>after some googling I found a very interesting blog post by [ cloudflare] (https://blog.cloudflare.com/a-gentle-introduction-to-linux-kernel-fuzzing/ )</p>
+<p>after some googling I found a very interesting blog post by <a href="https://blog.cloudflare.com/a-gentle-introduction-to-linux-kernel-fuzzing/">cloudflare</a></p>
 
 <p>they have had answered my second question on how to boot newly built linux kernel with current root file system with 
 <a href="https://github.com/amluto/virtme">virtme</a>
@@ -155,9 +154,8 @@ clone virtme and linux kenel</p>
 git clone <span class="nt">--depth</span> 1 https://github.com/amluto/virtme.git
 <span class="nb">cd </span>linux</code></pre></figure>
 
-<p>you have to enable kcov for all or specific file you want</p>
-
-<p>Enable KCOV in all “fs” subdirectory:</p>
+<p>you have to enable kcov for all targets with KCOV_INSTRUMENT_ALL or specific makefile.
+Enable KCOV in all “fs” subdirectory:</p>
 
 <figure class="highlight"><pre><code class="language-shell" data-lang="shell">find <span class="s2">"fs"</span> <span class="nt">-name</span> Makefile <span class="se">\</span>
     | xargs <span class="nt">-L1</span> <span class="nt">-I</span> <span class="o">{}</span> bash <span class="nt">-c</span> <span class="s1">'echo "KCOV_INSTRUMENT := y" &gt;&gt; {}'</span></code></pre></figure>
@@ -311,9 +309,11 @@ Protobufs provide a convenient way to serialize structured data, and LPM provide
 
 <p>build the libprotobuf-mutator</p>
 
-<p>the interesting parts begin, now if the kasan panics, libfuzzer dosen’t have a way to know it and it will discard the sample,so to save the sample that triggered the crash we have to tell to libfuzzer that kernel has paniced.</p>
+<p>the interesting parts begin, now if the kasan panics, libfuzzer dosen’t have a way to know it and will discard the sample,so to save the sample that triggered the crash we have to tell to libfuzzer that kernel has paniced.</p>
 
-<p>At first I used others ways to let the fuzzer know about panic but I decied to mimic SIGSEGV and send signal to libfuzzer when there is a kasan panic in kernel. add send_sigsegv_to_process function to print_error_description in /mm/kasan/report.c</p>
+<p>At first I used others ways to let the fuzzer know about panic but I decied to mimic SIGSEGV and send signal to libfuzzer when there is a kasan panic in kernel. when libfuzzer gets this signal it will save the sample and quit.</p>
+
+<p>so add send_sigsegv_to_process function to print_error_description in /mm/kasan/report.c file.</p>
 
 <p>make sure 
 “kernel.panic_on_warn” and 
@@ -359,8 +359,7 @@ are set to “0”</p>
                         <span class="n">info</span><span class="o">-&gt;</span><span class="n">access_addr</span><span class="p">,</span> <span class="n">current</span><span class="o">-&gt;</span><span class="n">comm</span><span class="p">,</span> <span class="n">task_pid_nr</span><span class="p">(</span><span class="n">current</span><span class="p">));</span>
 <span class="p">}</span></code></pre></figure>
 
-<p>now you can boot the new kernel and run the fuzzer with</p>
+<p>copy libprotobuf example file to testfuzz. now you can boot the new kernel and run the fuzzer with</p>
 
-<figure class="highlight"><pre><code class="language-shell" data-lang="shell"> ../virtme/virtme-run <span class="nt">--kimg</span> <span class="nb">arch</span>/x86/boot/bzImage <span class="nt">--rwdir</span> ../testfuzz/ <span class="nt">--qemu-opts</span>  <span class="nt">-m</span> 2G <span class="nt">-smp</span> 2 <span class="nt">-enable-kvm</span></code></pre></figure>
-
-<p>so if the fuzzer triggers a panic it will tell the fuzzer and libfuzzer will save the sample into testfuzz, which is where i have copied my fuzzer.</p>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer, my final goal was to be able to build kernel without spending too much on building root file system.]]></summary></entry></feed>
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell"><span class="nb">cd </span>linux
+ ../virtme/virtme-run <span class="nt">--kimg</span> <span class="nb">arch</span>/x86/boot/bzImage <span class="nt">--rwdir</span> ../testfuzz/ <span class="nt">--qemu-opts</span>  <span class="nt">-m</span> 2G <span class="nt">-smp</span> 2 <span class="nt">-enable-kvm</span></code></pre></figure>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer and boot the kernel without spending too much on building root file system.]]></summary></entry></feed>
