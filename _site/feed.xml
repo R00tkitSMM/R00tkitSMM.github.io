@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2024-03-28T11:34:03+01:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">My interesting researches</title><subtitle>I share what I find interesting here..</subtitle><entry><title type="html">CVEs and reported vulnerabilities</title><link href="http://localhost:4000/fuzzing/2024/03/27/CVEs.html" rel="alternate" type="text/html" title="CVEs and reported vulnerabilities" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/CVEs</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/CVEs.html"><![CDATA[<p>Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/"> Microsoft’s blog post</a></p>
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2024-03-28T14:36:20+01:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">My interesting researches</title><subtitle>I share what I find interesting here..</subtitle><entry><title type="html">CVEs and reported vulnerabilities</title><link href="http://localhost:4000/fuzzing/2024/03/27/CVEs.html" rel="alternate" type="text/html" title="CVEs and reported vulnerabilities" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/CVEs</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/CVEs.html"><![CDATA[<p>Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/"> Microsoft’s blog post</a></p>
 
 <p>the CVE-2022-22587 vulnerability also has collision with in the wild exploits. read more about info
 Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://thehackernews.com/2022/12/new-actively-exploited-zero-day.html"> thehackernews</a></p>
@@ -138,7 +138,9 @@ Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016
       <td>Apple Support</td>
     </tr>
   </tbody>
-</table>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in Microsoft’s blog post]]></summary></entry><entry><title type="html">Structure-Aware linux kernel Fuzzing with libFuzzer</title><link href="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html" rel="alternate" type="text/html" title="Structure-Aware linux kernel Fuzzing with libFuzzer" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html"><![CDATA[<p>I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer and boot the kernel without spending too much on building root file system.</p>
+</table>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in Microsoft’s blog post]]></summary></entry><entry><title type="html">Structure-Aware linux kernel Fuzzing with libFuzzer</title><link href="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html" rel="alternate" type="text/html" title="Structure-Aware linux kernel Fuzzing with libFuzzer" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html"><![CDATA[<p>I just wanted to experiment with <mark>KCOV</mark> and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.</p>
+
+<p>First of all why not just using syzkaller? because why not? this may cover more State space.</p>
 
 <p>after some googling I found a very interesting blog post by <a href="https://blog.cloudflare.com/a-gentle-introduction-to-linux-kernel-fuzzing/">cloudflare</a></p>
 
@@ -148,19 +150,19 @@ so basicall Virtme is a set of simple tools to run a virtualized Linux kernel th
 Virtme is tiny, easy to use, and makes testing kernel changes quite simple.</p>
 
 <p>So let’s get started:
-clone virtme and linux kenel</p>
+clone virtme and linux kernel</p>
 
 <figure class="highlight"><pre><code class="language-shell" data-lang="shell">git clone <span class="nt">--depth</span> 1 https://github.com/torvalds/linux.git
 git clone <span class="nt">--depth</span> 1 https://github.com/amluto/virtme.git
 <span class="nb">cd </span>linux</code></pre></figure>
 
-<p>you have to enable kcov for all targets with KCOV_INSTRUMENT_ALL or specific makefile.
+<p>you have to enable kcov for all targets with <mark>KCOV_INSTRUMENT_ALL</mark> or specific makefile.
 Enable KCOV in all “fs” subdirectory:</p>
 
 <figure class="highlight"><pre><code class="language-shell" data-lang="shell">find <span class="s2">"fs"</span> <span class="nt">-name</span> Makefile <span class="se">\</span>
     | xargs <span class="nt">-L1</span> <span class="nt">-I</span> <span class="o">{}</span> bash <span class="nt">-c</span> <span class="s1">'echo "KCOV_INSTRUMENT := y" &gt;&gt; {}'</span></code></pre></figure>
 
-<p>then build linux kernel with kcov and kasan and some other flags needed by virtme</p>
+<p>then build linux kernel with <mark>KCOV</mark> and <mark>KASAN</mark> and some other flags needed by virtme</p>
 
 <figure class="highlight"><pre><code class="language-shell" data-lang="shell">../virtme/virtme-configkernel  <span class="nt">--defconfig</span>
  
@@ -192,8 +194,7 @@ Enable KCOV in all “fs” subdirectory:</p>
     <span class="nt">-e</span> UBSAN <span class="se">\</span>
     <span class="nt">-d</span> RANDOMIZE_BASE</code></pre></figure>
 
-<p>in order to provied kenrnel code coverage to libfuzzer we can use __libfuzzer_extra_counters, you can see a good example  in [syzkaller]
-(https://github.com/google/syzkaller/blob/master/tools/kcovfuzzer/kcovfuzzer.c)
+<p>in order to provied kenrnel code coverage to libfuzzer we can use <mark>__libfuzzer_extra_counters</mark>, you can see a good example  in <a href="https://github.com/google/syzkaller/blob/master/tools/kcovfuzzer/kcovfuzzer.c">syzkaller</a>
 and its documentation in <a href="https://docs.kernel.org/dev-tools/kcov.html">kernel website</a></p>
 
 <p>I used wanted to have Structure-Aware kernel Fuzzing with libFuzzer so I deciede to use libprotobuf-mutator.
@@ -214,11 +215,11 @@ I can’t explain better then original google fuzzing doc</p>
 Protobufs provide a convenient way to serialize structured data, and LPM provides an easy way to mutate protobufs for structure-aware fuzzing. Thus, it is tempting to use libFuzzer+LPM for APIs that consume structured data other than protobufs.</p>
 </blockquote>
 
-<p>but simpply clone the repo and replace following code with <a href="https://github.com/google/libprotobuf-mutator/blob/master/examples/libfuzzer/libfuzzer_bin_example.cc">this file</a></p>
+<p>but simply clone the repo and replace following code with <a href="https://github.com/google/libprotobuf-mutator/blob/master/examples/libfuzzer/libfuzzer_bin_example.cc">this file</a></p>
 
 <figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="o">:</span><span class="c1">//github.com/google/libprotobuf-mutator.git</span></code></pre></figure>
 
-<p>you can commnent out other files in CMakeLists.txt because we want to modify .proto file.</p>
+<p>you can comment out other files in CMakeLists.txt because we want to modify .proto file.</p>
 
 <figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="cp">#include</span> <span class="cpf">&lt;cmath&gt;</span><span class="cp">
 #include</span> <span class="cpf">&lt;iostream&gt;</span><span class="cp">
@@ -253,13 +254,13 @@ Protobufs provide a convenient way to serialize structured data, and LPM provide
 <span class="k">extern</span> <span class="s">"C"</span> <span class="kt">int</span> <span class="nf">LLVMFuzzerInitialize</span><span class="p">(</span><span class="kt">int</span> <span class="o">*</span><span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">***</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
 	
 	<span class="kt">int</span> <span class="n">kcov</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="s">"/sys/kernel/debug/kcov"</span><span class="p">,</span> <span class="n">O_RDWR</span><span class="p">);</span>
-	<span class="k">if</span> <span class="p">(</span><span class="n">kcov</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">kcov</span> <span class="o">&lt;</span><span class="n">mark</span><span class="o">&gt;-</span><span class="mi">1</span><span class="p">)</span>
 		<span class="n">fail</span><span class="p">(</span><span class="s">"open of /sys/kernel/debug/kcov failed"</span><span class="p">);</span>
 	<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">kcov</span><span class="p">,</span> <span class="n">KCOV_INIT_TRACE64</span><span class="p">,</span> <span class="n">KCOV_COVER_SIZE</span><span class="p">))</span>
 		<span class="n">fail</span><span class="p">(</span><span class="s">"init trace write failed"</span><span class="p">);</span>
 	<span class="n">kcov_data</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)</span><span class="n">mmap</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">KCOV_COVER_SIZE</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">kcov_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
 				    <span class="n">PROT_READ</span> <span class="o">|</span> <span class="n">PROT_WRITE</span><span class="p">,</span> <span class="n">MAP_SHARED</span><span class="p">,</span> <span class="n">kcov</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
-	<span class="k">if</span> <span class="p">(</span><span class="n">kcov_data</span> <span class="o">==</span> <span class="n">MAP_FAILED</span><span class="p">)</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">kcov_data</span> <span class="o">&lt;</span><span class="n">mark</span><span class="o">&gt;</span><span class="n">MAP_FAILED</span><span class="p">)</span>
 		<span class="n">fail</span><span class="p">(</span><span class="s">"mmap failed"</span><span class="p">);</span>
 	<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">kcov</span><span class="p">,</span> <span class="n">KCOV_ENABLE</span><span class="p">,</span> <span class="n">KCOV_TRACE_PC</span><span class="p">))</span>
 		<span class="n">fail</span><span class="p">(</span><span class="s">"enable write trace failed"</span><span class="p">);</span>
@@ -312,14 +313,15 @@ Protobufs provide a convenient way to serialize structured data, and LPM provide
 
 <p>The intriguing phase starts. If a kasan panics, libfuzzer lacks awareness and will dispose of the sample. Therefore, to preserve the triggering sample of the crash, we must inform libfuzzer about the kernel panic.</p>
 
-<p>Initially, I explored alternative methods to notify the fuzzer about the panic. However, I opted to simulate SIGSEGV and dispatch a signal to libfuzzer whenever a kasan panic occurs in the kernel. Upon receiving this signal, libfuzzer will preserve the sample and terminate.
+<p>Initially, I explored alternative methods to notify the fuzzer about the panic. However, I opted to simulate <mark>SIGSEGV</mark> and dispatch a signal to libfuzzer whenever a kasan panic occurs in the kernel. Upon receiving this signal, libfuzzer will preserve the sample and terminate.
 so we have to modify the linux kernel and build it once more.
-add send_sigsegv_to_process function to print_error_description in /mm/kasan/report.c.</p>
+add <mark>send_sigsegv_to_process</mark> function to <mark>print_error_description</mark> in <mark>/mm/kasan/report.c</mark>.</p>
 
-<p>make sure 
-“kernel.panic_on_warn” and 
-“kernel.panic_on_oops”
-are set to “0”</p>
+<p>make sure</p>
+<ul>
+  <li>kernel.panic_on_warn=0</li>
+  <li>kernel.panic_on_oops=0</li>
+</ul>
 
 <figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="cp">#include</span> <span class="cpf">&lt;linux/sched/signal.h&gt;</span><span class="cp">
 #include</span> <span class="cpf">&lt;linux/sched.h&gt;</span><span class="cp">
@@ -360,7 +362,9 @@ are set to “0”</p>
                         <span class="n">info</span><span class="o">-&gt;</span><span class="n">access_addr</span><span class="p">,</span> <span class="n">current</span><span class="o">-&gt;</span><span class="n">comm</span><span class="p">,</span> <span class="n">task_pid_nr</span><span class="p">(</span><span class="n">current</span><span class="p">));</span>
 <span class="p">}</span></code></pre></figure>
 
-<p>copy libprotobuf example file to testfuzz. now you can boot the new kernel and run the fuzzer with</p>
+<p>copy libprotobuf example binary to testfuzz. now you can boot the new kernel and run the fuzzer with</p>
 
 <figure class="highlight"><pre><code class="language-shell" data-lang="shell"><span class="nb">cd </span>linux
- ../virtme/virtme-run <span class="nt">--kimg</span> <span class="nb">arch</span>/x86/boot/bzImage <span class="nt">--rwdir</span> ../testfuzz/ <span class="nt">--qemu-opts</span>  <span class="nt">-m</span> 2G <span class="nt">-smp</span> 2 <span class="nt">-enable-kvm</span></code></pre></figure>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer and boot the kernel without spending too much on building root file system.]]></summary></entry></feed>
+ ../virtme/virtme-run <span class="nt">--kimg</span> <span class="nb">arch</span>/x86/boot/bzImage <span class="nt">--rwdir</span> ../testfuzz/ <span class="nt">--qemu-opts</span>  <span class="nt">-m</span> 2G <span class="nt">-smp</span> 2 <span class="nt">-enable-kvm</span></code></pre></figure>
+
+<p>The next step involves incorporating APIs and system calls into the proto file and ensuring they are included in the <mark>DEFINE_PROTO_FUZZER</mark>. This will enable the ability to fuzz additional subsystems within the Linux kernel.</p>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[I just wanted to experiment with KCOV and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.]]></summary></entry></feed>

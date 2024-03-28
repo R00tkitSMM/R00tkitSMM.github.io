@@ -5,7 +5,7 @@ date: 2024-03-27 22:27:59 +0100
 categories: fuzzing
 ---
 
-I just wanted to experiment with kcov and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.
+I just wanted to experiment with <mark>KCOV</mark> and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.
 
 First of all why not just using syzkaller? because why not? this may cover more State space.
 
@@ -25,14 +25,14 @@ cd linux
 {% endhighlight %}
 
 
-you have to enable kcov for all targets with KCOV_INSTRUMENT_ALL or specific makefile.
+you have to enable kcov for all targets with <mark>KCOV_INSTRUMENT_ALL</mark> or specific makefile.
 Enable KCOV in all "fs" subdirectory:
 {% highlight shell %}
 find "fs" -name Makefile \
     | xargs -L1 -I {} bash -c 'echo "KCOV_INSTRUMENT := y" >> {}'
 {% endhighlight %}
 
-then build linux kernel with KCOV and KASAN and some other flags needed by virtme
+then build linux kernel with <mark>KCOV</mark> and <mark>KASAN</mark> and some other flags needed by virtme
 
 {% highlight shell %}
 ../virtme/virtme-configkernel  --defconfig
@@ -67,7 +67,7 @@ then build linux kernel with KCOV and KASAN and some other flags needed by virtm
 {% endhighlight %}
     
 
-in order to provied kenrnel code coverage to libfuzzer we can use __libfuzzer_extra_counters, you can see a good example  in [syzkaller](https://github.com/google/syzkaller/blob/master/tools/kcovfuzzer/kcovfuzzer.c)
+in order to provied kenrnel code coverage to libfuzzer we can use <mark>__libfuzzer_extra_counters</mark>, you can see a good example  in [syzkaller](https://github.com/google/syzkaller/blob/master/tools/kcovfuzzer/kcovfuzzer.c)
 and its documentation in [kernel website](https://docs.kernel.org/dev-tools/kcov.html)
 
 
@@ -127,13 +127,13 @@ uint64_t* kcov_data;
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
 	
 	int kcov = open("/sys/kernel/debug/kcov", O_RDWR);
-	if (kcov == -1)
+	if (kcov <mark>-1)
 		fail("open of /sys/kernel/debug/kcov failed");
 	if (ioctl(kcov, KCOV_INIT_TRACE64, KCOV_COVER_SIZE))
 		fail("init trace write failed");
 	kcov_data = (uint64_t*)mmap(NULL, KCOV_COVER_SIZE * sizeof(kcov_data[0]),
 				    PROT_READ | PROT_WRITE, MAP_SHARED, kcov, 0);
-	if (kcov_data == MAP_FAILED)
+	if (kcov_data <mark>MAP_FAILED)
 		fail("mmap failed");
 	if (ioctl(kcov, KCOV_ENABLE, KCOV_TRACE_PC))
 		fail("enable write trace failed");
@@ -187,14 +187,14 @@ for test you can use [SockFuzzer](https://github.com/googleprojectzero/SockFuzze
 
 The intriguing phase starts. If a kasan panics, libfuzzer lacks awareness and will dispose of the sample. Therefore, to preserve the triggering sample of the crash, we must inform libfuzzer about the kernel panic.
 
-Initially, I explored alternative methods to notify the fuzzer about the panic. However, I opted to simulate SIGSEGV and dispatch a signal to libfuzzer whenever a kasan panic occurs in the kernel. Upon receiving this signal, libfuzzer will preserve the sample and terminate.
+Initially, I explored alternative methods to notify the fuzzer about the panic. However, I opted to simulate <mark>SIGSEGV</mark> and dispatch a signal to libfuzzer whenever a kasan panic occurs in the kernel. Upon receiving this signal, libfuzzer will preserve the sample and terminate.
 so we have to modify the linux kernel and build it once more.
-add send_sigsegv_to_process function to print_error_description in /mm/kasan/report.c.
+add <mark>send_sigsegv_to_process</mark> function to <mark>print_error_description</mark> in <mark>/mm/kasan/report.c</mark>.
 
 make sure 
-"kernel.panic_on_warn" and 
-"kernel.panic_on_oops"
-are set to "0"
+* kernel.panic_on_warn=0
+* kernel.panic_on_oops=0
+
 {% highlight cpp %}
 
 #include <linux/sched/signal.h>
@@ -243,7 +243,7 @@ cd linux
  ../virtme/virtme-run --kimg arch/x86/boot/bzImage --rwdir ../testfuzz/ --qemu-opts  -m 2G -smp 2 -enable-kvm
 {% endhighlight %}
 
-The next step involves incorporating APIs and system calls into the proto file and ensuring they are included in the DEFINE_PROTO_FUZZER. This will enable the ability to fuzz additional subsystems within the Linux kernel.
+The next step involves incorporating APIs and system calls into the proto file and ensuring they are included in the <mark>DEFINE_PROTO_FUZZER</mark>. This will enable the ability to fuzz additional subsystems within the Linux kernel.
 
 
 [jekyll-docs]: https://jekyllrb.com/docs/home
