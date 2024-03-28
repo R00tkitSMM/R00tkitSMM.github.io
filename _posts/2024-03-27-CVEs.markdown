@@ -3,10 +3,10 @@ layout: post
 title:  "CVEs and reported Vulnerabilities"
 date:   2024-03-27 22:27:59 +0100
 categories: fuzzing
-
+---
 Some vulnerabilities I've reported include an intriguing story behind CVE-2016-0040, which you can explore in Microsoft's blog post here: https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/
 
-the CVE-2022-22587 vulnerability also has collision with in the wild exploits. read more about it in:
+the CVE-2022-22587 vulnerability also has collision with in the wild exploits. read more about info:
 https://thehackernews.com/2022/12/new-actively-exploited-zero-day.html
 ---
 | CVE              | Description                                                                      | Source                                        |
