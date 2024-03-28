@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2024-03-28T11:24:04+01:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">My interesting researches</title><subtitle>I share what I find interesting here..</subtitle><entry><title type="html">CVEs and reported vulnerabilities</title><link href="http://localhost:4000/fuzzing/2024/03/27/CVEs.html" rel="alternate" type="text/html" title="CVEs and reported vulnerabilities" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/CVEs</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/CVEs.html"><![CDATA[<p>Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/"> Microsoft’s blog post</a></p>
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2024-03-28T11:28:08+01:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">My interesting researches</title><subtitle>I share what I find interesting here..</subtitle><entry><title type="html">CVEs and reported vulnerabilities</title><link href="http://localhost:4000/fuzzing/2024/03/27/CVEs.html" rel="alternate" type="text/html" title="CVEs and reported vulnerabilities" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/CVEs</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/CVEs.html"><![CDATA[<p>Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/"> Microsoft’s blog post</a></p>
 
 <p>the CVE-2022-22587 vulnerability also has collision with in the wild exploits. read more about info
 Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://thehackernews.com/2022/12/new-actively-exploited-zero-day.html"> thehackernews</a></p>
@@ -203,17 +203,18 @@ almost every kernel attack vector is Stateful APIs. you can’t just feed raw bu
 <ul>
   <li><a href="https://powerofcommunity.net/poc2018/ned.pdf">poc2018</a></li>
   <li><a href="https://googleprojectzero.blogspot.com/2019/12/sockpuppet-walkthrough-of-kernel.html">project zero blog</a></li>
-  <li><a href="https://chromium.googlesource.com/chromium/src/+/main/testing/libfuzzer/libprotobuf-mutator.md">chromium</a>
-there are tons of resource out there about using libprotobuf-mutator
-I can’t explain better then original google fuzzing doc</li>
+  <li><a href="https://chromium.googlesource.com/chromium/src/+/main/testing/libfuzzer/libprotobuf-mutator.md">chromium</a></li>
 </ul>
+
+<p>there are tons of resource out there about using libprotobuf-mutator
+I can’t explain better then original google fuzzing doc</p>
 
 <blockquote>
   <p>Protocol Buffers As Intermediate Format
 Protobufs provide a convenient way to serialize structured data, and LPM provides an easy way to mutate protobufs for structure-aware fuzzing. Thus, it is tempting to use libFuzzer+LPM for APIs that consume structured data other than protobufs.</p>
 </blockquote>
 
-<p>but simpply clone the repo and replace following code with [this file](https://github.com/google/libprotobuf-mutator/blob/master/examples/libfuzzer/libfuzzer_bin_example.cc</p>
+<p>but simpply clone the repo and replace following code with <a href="https://github.com/google/libprotobuf-mutator/blob/master/examples/libfuzzer/libfuzzer_bin_example.cc">this file</a></p>
 
 <figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="o">:</span><span class="c1">//github.com/google/libprotobuf-mutator.git</span></code></pre></figure>
 
@@ -307,7 +308,7 @@ Protobufs provide a convenient way to serialize structured data, and LPM provide
         <span class="n">kcov_stop</span><span class="p">();</span>
 <span class="p">}</span></code></pre></figure>
 
-<p>build the libprotobuf-mutator</p>
+<p>for test you can use <a href="https://github.com/googleprojectzero/SockFuzzer/tree/main">SockFuzzer</a> to fuzz network stack.</p>
 
 <p>the interesting parts begin, now if the kasan panics, libfuzzer dosen’t have a way to know it and will discard the sample,so to save the sample that triggered the crash we have to tell to libfuzzer that kernel has paniced.</p>
 

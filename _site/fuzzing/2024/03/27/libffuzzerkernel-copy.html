@@ -112,17 +112,18 @@ almost every kernel attack vector is Stateful APIs. you can’t just feed raw bu
 <ul>
   <li><a href="https://powerofcommunity.net/poc2018/ned.pdf">poc2018</a></li>
   <li><a href="https://googleprojectzero.blogspot.com/2019/12/sockpuppet-walkthrough-of-kernel.html">project zero blog</a></li>
-  <li><a href="https://chromium.googlesource.com/chromium/src/+/main/testing/libfuzzer/libprotobuf-mutator.md">chromium</a>
-there are tons of resource out there about using libprotobuf-mutator
-I can’t explain better then original google fuzzing doc</li>
+  <li><a href="https://chromium.googlesource.com/chromium/src/+/main/testing/libfuzzer/libprotobuf-mutator.md">chromium</a></li>
 </ul>
+
+<p>there are tons of resource out there about using libprotobuf-mutator
+I can’t explain better then original google fuzzing doc</p>
 
 <blockquote>
   <p>Protocol Buffers As Intermediate Format
 Protobufs provide a convenient way to serialize structured data, and LPM provides an easy way to mutate protobufs for structure-aware fuzzing. Thus, it is tempting to use libFuzzer+LPM for APIs that consume structured data other than protobufs.</p>
 </blockquote>
 
-<p>but simpply clone the repo and replace following code with [this file](https://github.com/google/libprotobuf-mutator/blob/master/examples/libfuzzer/libfuzzer_bin_example.cc</p>
+<p>but simpply clone the repo and replace following code with <a href="https://github.com/google/libprotobuf-mutator/blob/master/examples/libfuzzer/libfuzzer_bin_example.cc">this file</a></p>
 
 <figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="o">:</span><span class="c1">//github.com/google/libprotobuf-mutator.git</span></code></pre></figure>
 
@@ -216,7 +217,7 @@ Protobufs provide a convenient way to serialize structured data, and LPM provide
         <span class="n">kcov_stop</span><span class="p">();</span>
 <span class="p">}</span></code></pre></figure>
 
-<p>build the libprotobuf-mutator</p>
+<p>for test you can use <a href="https://github.com/googleprojectzero/SockFuzzer/tree/main">SockFuzzer</a> to fuzz network stack.</p>
 
 <p>the interesting parts begin, now if the kasan panics, libfuzzer dosen’t have a way to know it and will discard the sample,so to save the sample that triggered the crash we have to tell to libfuzzer that kernel has paniced.</p>
 

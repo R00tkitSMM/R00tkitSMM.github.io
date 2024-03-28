@@ -77,13 +77,14 @@ almost every kernel attack vector is Stateful APIs. you can't just feed raw buff
 * [poc2018](https://powerofcommunity.net/poc2018/ned.pdf)
 * [project zero blog](https://googleprojectzero.blogspot.com/2019/12/sockpuppet-walkthrough-of-kernel.html)
 * [chromium](https://chromium.googlesource.com/chromium/src/+/main/testing/libfuzzer/libprotobuf-mutator.md)
+
 there are tons of resource out there about using libprotobuf-mutator
 I can't explain better then original google fuzzing doc
 
 > Protocol Buffers As Intermediate Format
 Protobufs provide a convenient way to serialize structured data, and LPM provides an easy way to mutate protobufs for structure-aware fuzzing. Thus, it is tempting to use libFuzzer+LPM for APIs that consume structured data other than protobufs.
 
-but simpply clone the repo and replace following code with [this file](https://github.com/google/libprotobuf-mutator/blob/master/examples/libfuzzer/libfuzzer_bin_example.cc
+but simpply clone the repo and replace following code with [this file](https://github.com/google/libprotobuf-mutator/blob/master/examples/libfuzzer/libfuzzer_bin_example.cc)
 
 {% highlight cpp %}
 git clone https://github.com/google/libprotobuf-mutator.git
@@ -181,8 +182,7 @@ protobuf_mutator::protobuf::FileDescriptorProto file;
 }
 {% endhighlight %}
 
-
-build the libprotobuf-mutator
+for test you can use [SockFuzzer](https://github.com/googleprojectzero/SockFuzzer/tree/main) to fuzz network stack. 
 
 the interesting parts begin, now if the kasan panics, libfuzzer dosen't have a way to know it and will discard the sample,so to save the sample that triggered the crash we have to tell to libfuzzer that kernel has paniced.
 
