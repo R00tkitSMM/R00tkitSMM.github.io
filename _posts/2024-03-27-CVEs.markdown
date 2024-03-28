@@ -9,7 +9,7 @@ Some vulnerabilities I've reported include an intriguing story behind CVE-2016-0
 
 
 the CVE-2022-22587 vulnerability also has collision with in the wild exploits. read more about info
-Some vulnerabilities I've reported include an intriguing story behind CVE-2016-0040, which you can explore in [ you can explore](  https://thehackernews.com/2022/12/new-actively-exploited-zero-day.html)
+Some vulnerabilities I've reported include an intriguing story behind CVE-2016-0040, which you can explore in [ thehackernews](  https://thehackernews.com/2022/12/new-actively-exploited-zero-day.html)
 
 
 
