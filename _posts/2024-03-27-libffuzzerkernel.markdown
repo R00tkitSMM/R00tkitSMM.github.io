@@ -5,7 +5,7 @@ date: 2024-03-27 22:27:59 +0100
 categories: fuzzing
 ---
 
-I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer and boot the kernel without spending too much on building root file system.
+I just wanted to experiment with kcov and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.
 
 First of all why not just using syzkaller? because why not? this may cover more State space.
 
@@ -17,7 +17,7 @@ so basicall Virtme is a set of simple tools to run a virtualized Linux kernel th
 Virtme is tiny, easy to use, and makes testing kernel changes quite simple.
 
 So let's get started:
-clone virtme and linux kenel 
+clone virtme and linux kernel 
 {% highlight shell %}
 git clone --depth 1 https://github.com/torvalds/linux.git
 git clone --depth 1 https://github.com/amluto/virtme.git
@@ -32,7 +32,7 @@ find "fs" -name Makefile \
     | xargs -L1 -I {} bash -c 'echo "KCOV_INSTRUMENT := y" >> {}'
 {% endhighlight %}
 
-then build linux kernel with kcov and kasan and some other flags needed by virtme
+then build linux kernel with KCOV and KASAN and some other flags needed by virtme
 
 {% highlight shell %}
 ../virtme/virtme-configkernel  --defconfig
@@ -86,13 +86,13 @@ I can't explain better then original google fuzzing doc
 > Protocol Buffers As Intermediate Format
 Protobufs provide a convenient way to serialize structured data, and LPM provides an easy way to mutate protobufs for structure-aware fuzzing. Thus, it is tempting to use libFuzzer+LPM for APIs that consume structured data other than protobufs.
 
-but simpply clone the repo and replace following code with [this file](https://github.com/google/libprotobuf-mutator/blob/master/examples/libfuzzer/libfuzzer_bin_example.cc)
+but simply clone the repo and replace following code with [this file](https://github.com/google/libprotobuf-mutator/blob/master/examples/libfuzzer/libfuzzer_bin_example.cc)
 
 {% highlight cpp %}
 git clone https://github.com/google/libprotobuf-mutator.git
 {% endhighlight %}
 
-you can commnent out other files in CMakeLists.txt because we want to modify .proto file.
+you can comment out other files in CMakeLists.txt because we want to modify .proto file.
 
 {% highlight cpp %}
 #include <cmath>
@@ -238,7 +238,7 @@ static void print_error_description(struct kasan_report_info *info)
 }
 {% endhighlight %}
 
-copy libprotobuf example file to testfuzz. now you can boot the new kernel and run the fuzzer with
+copy libprotobuf example binary to testfuzz. now you can boot the new kernel and run the fuzzer with
 {% highlight shell %}
 cd linux
  ../virtme/virtme-run --kimg arch/x86/boot/bzImage --rwdir ../testfuzz/ --qemu-opts  -m 2G -smp 2 -enable-kvm
