@@ -5,10 +5,9 @@ date:   2024-03-27 22:27:59 +0100
 categories: fuzzing
 ---
 
-I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer,
-my final goal was to be able to build kernel without spending too much on building root file system.
+I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer and boot the kernel without spending too much on building root file system.
 
-after some googling I found a very interesting blog post by [ cloudflare] (https://blog.cloudflare.com/a-gentle-introduction-to-linux-kernel-fuzzing/ )
+after some googling I found a very interesting blog post by [cloudflare](https://blog.cloudflare.com/a-gentle-introduction-to-linux-kernel-fuzzing/ )
 
 they have had answered my second question on how to boot newly built linux kernel with current root file system with 
 [virtme](https://github.com/amluto/virtme)
@@ -24,8 +23,7 @@ cd linux
 {% endhighlight %}
 
 
-you have to enable kcov for all or specific file you want 
-
+you have to enable kcov for all targets with KCOV_INSTRUMENT_ALL or specific makefile.
 Enable KCOV in all "fs" subdirectory:
 {% highlight shell %}
 find "fs" -name Makefile \
@@ -66,7 +64,6 @@ then build linux kernel with kcov and kasan and some other flags needed by virtm
     -d RANDOMIZE_BASE
 {% endhighlight %}
     
-
 
 in order to provied kenrnel code coverage to libfuzzer we can use __libfuzzer_extra_counters, you can see a good example  in [syzkaller]
 (https://github.com/google/syzkaller/blob/master/tools/kcovfuzzer/kcovfuzzer.c)
@@ -187,9 +184,11 @@ protobuf_mutator::protobuf::FileDescriptorProto file;
 
 build the libprotobuf-mutator
 
-the interesting parts begin, now if the kasan panics, libfuzzer dosen't have a way to know it and it will discard the sample,so to save the sample that triggered the crash we have to tell to libfuzzer that kernel has paniced.
+the interesting parts begin, now if the kasan panics, libfuzzer dosen't have a way to know it and will discard the sample,so to save the sample that triggered the crash we have to tell to libfuzzer that kernel has paniced.
 
-At first I used others ways to let the fuzzer know about panic but I decied to mimic SIGSEGV and send signal to libfuzzer when there is a kasan panic in kernel. add send_sigsegv_to_process function to print_error_description in /mm/kasan/report.c
+At first I used others ways to let the fuzzer know about panic but I decied to mimic SIGSEGV and send signal to libfuzzer when there is a kasan panic in kernel. when libfuzzer gets this signal it will save the sample and quit.
+
+so add send_sigsegv_to_process function to print_error_description in /mm/kasan/report.c file.
 
 make sure 
 "kernel.panic_on_warn" and 
@@ -237,13 +236,11 @@ static void print_error_description(struct kasan_report_info *info)
 }
 {% endhighlight %}
 
-now you can boot the new kernel and run the fuzzer with
+copy libprotobuf example file to testfuzz. now you can boot the new kernel and run the fuzzer with
 {% highlight shell %}
+cd linux
  ../virtme/virtme-run --kimg arch/x86/boot/bzImage --rwdir ../testfuzz/ --qemu-opts  -m 2G -smp 2 -enable-kvm
 {% endhighlight %}
-
-so if the fuzzer triggers a panic it will tell the fuzzer and libfuzzer will save the sample into testfuzz, which is where i have copied my fuzzer. 
-
 
 
 [jekyll-docs]: https://jekyllrb.com/docs/home
