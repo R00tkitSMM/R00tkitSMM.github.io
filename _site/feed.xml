@@ -1,10 +1,144 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2024-03-27T22:40:58+01:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">My interesting researches</title><subtitle>I share what I find interesting here..</subtitle><entry><title type="html">Using libFuzzer with linux kernel!</title><link href="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html" rel="alternate" type="text/html" title="Using libFuzzer with linux kernel!" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html"><![CDATA[<p>You’ll find this post in your <code class="language-plaintext highlighter-rouge">_posts</code> directory. Go ahead and edit it and re-build the site to see your changes. You can rebuild the site in many different ways, but the most common way is to run <code class="language-plaintext highlighter-rouge">jekyll serve</code>, which launches a web server and auto-regenerates your site when a file is updated.</p>
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2024-03-28T10:02:47+01:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">My interesting researches</title><subtitle>I share what I find interesting here..</subtitle><entry><title type="html">CVEs and reported Vulnerabilities</title><link href="http://localhost:4000/fuzzing/2024/03/27/CVEs.html" rel="alternate" type="text/html" title="CVEs and reported Vulnerabilities" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/CVEs</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/CVEs.html"><![CDATA[<p>Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/"> Microsoft’s blog post here</a></p>
 
-<p>To add new posts, simply add a file in the <code class="language-plaintext highlighter-rouge">_posts</code> directory that follows the convention <code class="language-plaintext highlighter-rouge">YYYY-MM-DD-name-of-post.ext</code> and includes the necessary front matter. Take a look at the source for this post to get an idea about how it works.</p>
+<p>the CVE-2022-22587 vulnerability also has collision with in the wild exploits. read more about info
+Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://thehackernews.com/2022/12/new-actively-exploited-zero-day.html"> you can explore in </a></p>
 
-<p>Jekyll also offers powerful support for code snippets:</p>
-
-<figure class="highlight"><pre><code class="language-shell" data-lang="shell"><span class="c"># Use a base image with Ubuntu</span>
+<table>
+  <thead>
+    <tr>
+      <th>CVE</th>
+      <th>Description</th>
+      <th>Source</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>CVE-2016-0087</td>
+      <td>Windows kernel Privilege escalation Vulnerability - Type Confusion</td>
+      <td>GitHub Link, Microsoft Security Blog</td>
+    </tr>
+    <tr>
+      <td>CVE-2016-0040</td>
+      <td>Windows kernel Privilege escalation Vulnerability - Uninitialized pointer</td>
+      <td>GitHub Link, Microsoft Security Blog</td>
+    </tr>
+    <tr>
+      <td>CVE-2016-7627</td>
+      <td>A null pointer dereference in iOS/OSX</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>CVE-2017-0167</td>
+      <td>Microsoft Windows Kernel Information Disclosure Vulnerability, bypassing ASLR</td>
+      <td>Microsoft Security Blog</td>
+    </tr>
+    <tr>
+      <td>CVE-2019-1250</td>
+      <td>Microsoft Jet Database Engine Remote Code Execution Vulnerabilities</td>
+      <td>Microsoft Security Blog</td>
+    </tr>
+    <tr>
+      <td>CVE-2020-0992</td>
+      <td>Microsoft Jet Database Engine Remote Code Execution Vulnerabilities</td>
+      <td>Microsoft Security Blog</td>
+    </tr>
+    <tr>
+      <td>CVE-2020-1008</td>
+      <td>Microsoft Jet Database Engine Remote Code Execution Vulnerabilities</td>
+      <td>Microsoft Security Blog</td>
+    </tr>
+    <tr>
+      <td>CVE-2020-0889</td>
+      <td>Microsoft Jet Database Engine Remote Code Execution Vulnerabilities</td>
+      <td>Microsoft Security Blog</td>
+    </tr>
+    <tr>
+      <td>CVE-2020-0634</td>
+      <td>Microsoft Windows CLFS Use-After-Free Privilege Escalation Vulnerability</td>
+      <td>Zero Day Initiative Advisory</td>
+    </tr>
+    <tr>
+      <td>CVE-2020-0961</td>
+      <td>Microsoft Office Access Connectivity Engine Remote Code Execution Vulnerability</td>
+      <td>Zero Day Initiative Advisory</td>
+    </tr>
+    <tr>
+      <td>CVE-2020-17395</td>
+      <td>Parallels Desktop integer underflow VM escape Vulnerability</td>
+      <td>Zero Day Initiative Advisory</td>
+    </tr>
+    <tr>
+      <td>CVE-2022-34890</td>
+      <td>Local attackers disclose sensitive information on Parallels Desktop</td>
+      <td>Zero Day Initiative Advisory</td>
+    </tr>
+    <tr>
+      <td>CVE-2022-22587</td>
+      <td>iOS kernel Memory Corruption. Impact: Arbitrary code execution with kernel privileges</td>
+      <td>Apple Support</td>
+    </tr>
+    <tr>
+      <td>CVE-2023-32384</td>
+      <td>Buffer overflow in iOS ImageIO. Impact: Arbitrary code execution</td>
+      <td>Apple Support</td>
+    </tr>
+    <tr>
+      <td>CVE-2023-23519</td>
+      <td> </td>
+      <td>Apple Support</td>
+    </tr>
+    <tr>
+      <td>CVE-2023-32372</td>
+      <td>Out-of-bounds read in iOS ImageIO.</td>
+      <td>Apple Support</td>
+    </tr>
+    <tr>
+      <td>CVE-2023-27929</td>
+      <td>Out-of-bounds read in iOS ImageIO.</td>
+      <td>Apple Support</td>
+    </tr>
+    <tr>
+      <td>CVE-2023-27948</td>
+      <td>Out-of-bounds read addressed with improved input validation.</td>
+      <td>Apple Support</td>
+    </tr>
+    <tr>
+      <td>CVE-2023-27947</td>
+      <td>Out-of-bounds read addressed with improved input validation.</td>
+      <td>Apple Support</td>
+    </tr>
+    <tr>
+      <td>CVE-2023-21643</td>
+      <td>Qualcomm Security Bulletins</td>
+      <td>Security Bulletin</td>
+    </tr>
+    <tr>
+      <td>CVE-2023-21651</td>
+      <td>Qualcomm Security Bulletins</td>
+      <td>Security Bulletin</td>
+    </tr>
+    <tr>
+      <td>CVE-2023-42899</td>
+      <td>Processing an image may lead to arbitrary code execution in iOS, MacOS</td>
+      <td>Apple Support</td>
+    </tr>
+    <tr>
+      <td>CVE-2023-42865</td>
+      <td>Processing an image may lead to arbitrary code execution in iOS, MacOS</td>
+      <td>Apple Support</td>
+    </tr>
+    <tr>
+      <td>CVE-2023-42862</td>
+      <td>Processing an image may lead to arbitrary code execution in iOS, MacOS</td>
+      <td>Apple Support</td>
+    </tr>
+    <tr>
+      <td>CVE-2024-23264</td>
+      <td>An application may be able to read restricted memory in iOS, MacOS</td>
+      <td>Apple Support</td>
+    </tr>
+  </tbody>
+</table>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in Microsoft’s blog post here]]></summary></entry><entry><title type="html">Using libFuzzer with linux kernel!</title><link href="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html" rel="alternate" type="text/html" title="Using libFuzzer with linux kernel!" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel%20copy</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html"><![CDATA[<figure class="highlight"><pre><code class="language-shell" data-lang="shell"><span class="c"># Use a base image with Ubuntu</span>
 FROM ubuntu:latest
 
 <span class="c"># Update package lists</span>
@@ -185,4 +319,4 @@ RUN apt-get clean <span class="o">&amp;&amp;</span> <span class="nb">rm</span> <
         <span class="kt">int</span> <span class="n">fd</span> <span class="o">=</span> <span class="n">syscall</span><span class="p">(</span><span class="n">SYS_open</span><span class="p">,</span> <span class="s">"example.txt"</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">message</span><span class="p">.</span><span class="n">sample_int</span><span class="p">());</span>
         <span class="n">syscall</span><span class="p">(</span><span class="n">SYS_close</span><span class="p">,</span><span class="n">fd</span><span class="p">);</span>
         <span class="n">cover_stop</span><span class="p">();</span>
-<span class="p">}</span></code></pre></figure>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[You’ll find this post in your _posts directory. Go ahead and edit it and re-build the site to see your changes. You can rebuild the site in many different ways, but the most common way is to run jekyll serve, which launches a web server and auto-regenerates your site when a file is updated.]]></summary></entry></feed>
+<span class="p">}</span></code></pre></figure>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[# Use a base image with Ubuntu FROM ubuntu:latest]]></summary></entry></feed>
