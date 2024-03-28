@@ -4,5 +4,4 @@ title: About
 permalink: /about/
 ---
 
-I'm a software security researcher, hypervisor, Windows, nix, and XNU. 
-
+I am a security researcher specializing in software, with expertise in hypervisors, Windows, Unix-based systems, and XNU(macOS and iOS)
