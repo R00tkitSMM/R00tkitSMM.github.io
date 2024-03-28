@@ -7,6 +7,8 @@ categories: fuzzing
 
 I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer and boot the kernel without spending too much on building root file system.
 
+frist of all why not just using syzkaller? because why not? this may cover more State space.
+
 after some googling I found a very interesting blog post by [cloudflare](https://blog.cloudflare.com/a-gentle-introduction-to-linux-kernel-fuzzing/ )
 
 they have had answered my second question on how to boot newly built linux kernel with current root file system with 
