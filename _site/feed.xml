@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2024-03-28T10:02:47+01:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">My interesting researches</title><subtitle>I share what I find interesting here..</subtitle><entry><title type="html">CVEs and reported Vulnerabilities</title><link href="http://localhost:4000/fuzzing/2024/03/27/CVEs.html" rel="alternate" type="text/html" title="CVEs and reported Vulnerabilities" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/CVEs</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/CVEs.html"><![CDATA[<p>Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/"> Microsoft’s blog post here</a></p>
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2024-03-28T11:15:54+01:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">My interesting researches</title><subtitle>I share what I find interesting here..</subtitle><entry><title type="html">CVEs and reported vulnerabilities</title><link href="http://localhost:4000/fuzzing/2024/03/27/CVEs.html" rel="alternate" type="text/html" title="CVEs and reported vulnerabilities" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/CVEs</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/CVEs.html"><![CDATA[<p>Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/"> Microsoft’s blog post</a></p>
 
 <p>the CVE-2022-22587 vulnerability also has collision with in the wild exploits. read more about info
-Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://thehackernews.com/2022/12/new-actively-exploited-zero-day.html"> you can explore in </a></p>
+Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://thehackernews.com/2022/12/new-actively-exploited-zero-day.html"> thehackernews</a></p>
 
 <table>
   <thead>
@@ -138,43 +138,187 @@ Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016
       <td>Apple Support</td>
     </tr>
   </tbody>
-</table>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in Microsoft’s blog post here]]></summary></entry><entry><title type="html">Using libFuzzer with linux kernel!</title><link href="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html" rel="alternate" type="text/html" title="Using libFuzzer with linux kernel!" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel%20copy</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html"><![CDATA[<figure class="highlight"><pre><code class="language-shell" data-lang="shell"><span class="c"># Use a base image with Ubuntu</span>
-FROM ubuntu:latest
+</table>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in Microsoft’s blog post]]></summary></entry><entry><title type="html">Using libFuzzer with linux kernel!</title><link href="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html" rel="alternate" type="text/html" title="Using libFuzzer with linux kernel!" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel%20copy</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel-copy.html"><![CDATA[<p>I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer,
+my final goal was to be able to build kernel without spending too much on building root file system.</p>
 
-<span class="c"># Update package lists</span>
-RUN apt-get update
+<p>after some googling I found a very interesting blog post by [ cloudflare] (https://blog.cloudflare.com/a-gentle-introduction-to-linux-kernel-fuzzing/ )</p>
 
-<span class="c"># Install necessary packages</span>
-RUN apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="se">\</span>
-        build-essential <span class="se">\</span>
-        qemu-system-x86 <span class="se">\</span>
-        libpython2.7-dev <span class="se">\</span>
-        gettext <span class="se">\</span>
-        libelf-dev <span class="se">\</span>
-        git <span class="se">\ </span>
-        flex <span class="se">\</span>
-        bison <span class="se">\</span>
-        bc <span class="se">\</span>
-        libssl-dev <span class="se">\</span>
-        ncurses-dev <span class="se">\</span>
-        python3-pip <span class="se">\</span>
-        python-setuptools <span class="se">\</span>
-        busybox-static <span class="se">\</span>
-        qemu-kvm <span class="se">\ </span>
-        clang <span class="se">\</span>
-        protobuf-compiler <span class="se">\</span>
-        libprotobuf-dev <span class="se">\</span>
-        binutils <span class="se">\</span>
-        cmake <span class="se">\</span>
-        ninja-build <span class="se">\</span>
-	liblzma-dev <span class="se">\</span>
-	libz-dev <span class="se">\</span>
-	pkg-config <span class="se">\</span>
-	autoconf <span class="se">\</span>
-	libtool
+<p>they have had answered my second question on how to boot newly built linux kernel with current root file system with 
+<a href="https://github.com/amluto/virtme">virtme</a>
+so basicall Virtme is a set of simple tools to run a virtualized Linux kernel that uses the host Linux distribution or a simple rootfs instead of a whole disk image.
+Virtme is tiny, easy to use, and makes testing kernel changes quite simple.</p>
 
-<span class="c"># Cleanup</span>
-RUN apt-get clean <span class="o">&amp;&amp;</span> <span class="nb">rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/<span class="k">*</span></code></pre></figure>
+<p>So let’s get started:
+clone virtme and linux kenel</p>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell">git clone <span class="nt">--depth</span> 1 https://github.com/torvalds/linux.git
+git clone <span class="nt">--depth</span> 1 https://github.com/amluto/virtme.git
+<span class="nb">cd </span>linux</code></pre></figure>
+
+<p>you have to enable kcov for all or specific file you want</p>
+
+<p>Enable KCOV in all “fs” subdirectory:</p>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell">find <span class="s2">"fs"</span> <span class="nt">-name</span> Makefile <span class="se">\</span>
+    | xargs <span class="nt">-L1</span> <span class="nt">-I</span> <span class="o">{}</span> bash <span class="nt">-c</span> <span class="s1">'echo "KCOV_INSTRUMENT := y" &gt;&gt; {}'</span></code></pre></figure>
+
+<p>then build linux kernel with kcov and kasan and some other flags needed by virtme</p>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell">../virtme/virtme-configkernel  <span class="nt">--defconfig</span>
+ 
+ ./scripts/config <span class="se">\</span>
+    <span class="nt">-e</span> KCOV <span class="se">\</span>
+    <span class="nt">-d</span> KCOV_INSTRUMENT_ALL <span class="se">\</span>
+    <span class="nt">-e</span> KCOV_ENABLE_COMPARISONS
+   
+   
+./scripts/config <span class="se">\</span>
+    <span class="nt">-e</span> DEBUG_FS <span class="nt">-e</span> DEBUG_INFO <span class="se">\</span>
+    <span class="nt">-e</span> KALLSYMS <span class="nt">-e</span> KALLSYMS_ALL <span class="se">\</span>
+    <span class="nt">-e</span> NAMESPACES <span class="nt">-e</span> UTS_NS <span class="nt">-e</span> IPC_NS <span class="nt">-e</span> PID_NS <span class="nt">-e</span> NET_NS <span class="nt">-e</span> USER_NS <span class="se">\</span>
+    <span class="nt">-e</span> CGROUP_PIDS <span class="nt">-e</span> MEMCG <span class="nt">-e</span> CONFIGFS_FS <span class="nt">-e</span> SECURITYFS <span class="se">\</span>
+    <span class="nt">-e</span> KASAN <span class="nt">-e</span> KASAN_INLINE <span class="nt">-e</span> WARNING <span class="se">\</span>
+    <span class="nt">-e</span> FAULT_INJECTION <span class="nt">-e</span> FAULT_INJECTION_DEBUG_FS <span class="se">\</span>
+    <span class="nt">-e</span> FAILSLAB <span class="nt">-e</span> FAIL_PAGE_ALLOC <span class="se">\</span>
+    <span class="nt">-e</span> FAIL_MAKE_REQUEST <span class="nt">-e</span> FAIL_IO_TIMEOUT <span class="nt">-e</span> FAIL_FUTEX <span class="se">\</span>
+    <span class="nt">-e</span> LOCKDEP <span class="nt">-e</span> PROVE_LOCKING <span class="se">\</span>
+    <span class="nt">-e</span> DEBUG_ATOMIC_SLEEP <span class="se">\</span>
+    <span class="nt">-e</span> PROVE_RCU <span class="nt">-e</span> DEBUG_VM <span class="se">\</span>
+    <span class="nt">-e</span> REFCOUNT_FULL <span class="nt">-e</span> FORTIFY_SOURCE <span class="se">\</span>
+    <span class="nt">-e</span> HARDENED_USERCOPY <span class="nt">-e</span> LOCKUP_DETECTOR <span class="se">\</span>
+    <span class="nt">-e</span> SOFTLOCKUP_DETECTOR <span class="nt">-e</span> HARDLOCKUP_DETECTOR <span class="se">\</span>
+    <span class="nt">-e</span> BOOTPARAM_HARDLOCKUP_PANIC <span class="se">\</span>
+    <span class="nt">-e</span> DETECT_HUNG_TASK <span class="nt">-e</span> WQ_WATCHDOG <span class="se">\</span>
+    <span class="nt">--set-val</span> DEFAULT_HUNG_TASK_TIMEOUT 140 <span class="se">\</span>
+    <span class="nt">--set-val</span> RCU_CPU_STALL_TIMEOUT 100 <span class="se">\</span>
+    <span class="nt">-e</span> UBSAN <span class="se">\</span>
+    <span class="nt">-d</span> RANDOMIZE_BASE</code></pre></figure>
+
+<p>in order to provied kenrnel code coverage to libfuzzer we can use __libfuzzer_extra_counters, you can see a good example  in [syzkaller]
+(https://github.com/google/syzkaller/blob/master/tools/kcovfuzzer/kcovfuzzer.c)
+and its documentation in <a href="https://docs.kernel.org/dev-tools/kcov.html">kernel website</a></p>
+
+<p>I used wanted to have Structure-Aware kernel Fuzzing with libFuzzer so I deciede to use libprotobuf-mutator.
+which has show is very powerfull 
+almost every kernel attack vector is Stateful APIs. you can’t just feed raw buffer to it.</p>
+
+<ul>
+  <li><a href="https://powerofcommunity.net/poc2018/ned.pdf">poc2018</a></li>
+  <li><a href="https://googleprojectzero.blogspot.com/2019/12/sockpuppet-walkthrough-of-kernel.html">project zero blog</a></li>
+  <li><a href="https://chromium.googlesource.com/chromium/src/+/main/testing/libfuzzer/libprotobuf-mutator.md">chromium</a>
+there are tons of resource out there about using libprotobuf-mutator
+I can’t explain better then original google fuzzing doc</li>
+</ul>
+
+<blockquote>
+  <p>Protocol Buffers As Intermediate Format
+Protobufs provide a convenient way to serialize structured data, and LPM provides an easy way to mutate protobufs for structure-aware fuzzing. Thus, it is tempting to use libFuzzer+LPM for APIs that consume structured data other than protobufs.</p>
+</blockquote>
+
+<p>but simpply clone the repo and replace following code with [this file](https://github.com/google/libprotobuf-mutator/blob/master/examples/libfuzzer/libfuzzer_bin_example.cc</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="o">:</span><span class="c1">//github.com/google/libprotobuf-mutator.git</span></code></pre></figure>
+
+<p>you can commnent out other files in CMakeLists.txt because we want to modify .proto file.</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="cp">#include</span> <span class="cpf">&lt;cmath&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;iostream&gt;</span><span class="cp">
+</span>
+<span class="cp">#include</span> <span class="cpf">"examples/libfuzzer/libfuzzer_example.pb.h"</span><span class="cp">
+#include</span> <span class="cpf">"port/protobuf.h"</span><span class="cp">
+#include</span> <span class="cpf">"src/libfuzzer/libfuzzer_macro.h"</span><span class="cp">
+#include</span> <span class="cpf">&lt;errno.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;fcntl.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;linux/bpf.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;memory.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdarg.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdint.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;sys/ioctl.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;sys/mman.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;sys/stat.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;sys/syscall.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;sys/types.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp">
+</span><span class="kt">void</span> <span class="nf">fail</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">msg</span><span class="p">,</span> <span class="p">...);</span>
+<span class="kt">void</span> <span class="nf">kcov_start</span><span class="p">();</span>
+<span class="kt">void</span> <span class="nf">kcov_stop</span><span class="p">();</span>
+<span class="cp">#define KCOV_COVER_SIZE (256 &lt;&lt; 10)
+#define KCOV_TRACE_PC 0
+#define KCOV_INIT_TRACE64 _IOR('c', 1, uint64_t)
+#define KCOV_ENABLE _IO('c', 100)
+</span>
+<span class="n">__attribute__</span><span class="p">((</span><span class="n">section</span><span class="p">(</span><span class="s">"__libfuzzer_extra_counters"</span><span class="p">)))</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">libfuzzer_coverage</span><span class="p">[</span><span class="mi">32</span> <span class="o">&lt;&lt;</span> <span class="mi">10</span><span class="p">];</span>
+<span class="kt">uint64_t</span><span class="o">*</span> <span class="n">kcov_data</span><span class="p">;</span>
+<span class="k">extern</span> <span class="s">"C"</span> <span class="kt">int</span> <span class="nf">LLVMFuzzerInitialize</span><span class="p">(</span><span class="kt">int</span> <span class="o">*</span><span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">***</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	
+	<span class="kt">int</span> <span class="n">kcov</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="s">"/sys/kernel/debug/kcov"</span><span class="p">,</span> <span class="n">O_RDWR</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">kcov</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">fail</span><span class="p">(</span><span class="s">"open of /sys/kernel/debug/kcov failed"</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">kcov</span><span class="p">,</span> <span class="n">KCOV_INIT_TRACE64</span><span class="p">,</span> <span class="n">KCOV_COVER_SIZE</span><span class="p">))</span>
+		<span class="n">fail</span><span class="p">(</span><span class="s">"init trace write failed"</span><span class="p">);</span>
+	<span class="n">kcov_data</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)</span><span class="n">mmap</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">KCOV_COVER_SIZE</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">kcov_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+				    <span class="n">PROT_READ</span> <span class="o">|</span> <span class="n">PROT_WRITE</span><span class="p">,</span> <span class="n">MAP_SHARED</span><span class="p">,</span> <span class="n">kcov</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">kcov_data</span> <span class="o">==</span> <span class="n">MAP_FAILED</span><span class="p">)</span>
+		<span class="n">fail</span><span class="p">(</span><span class="s">"mmap failed"</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">kcov</span><span class="p">,</span> <span class="n">KCOV_ENABLE</span><span class="p">,</span> <span class="n">KCOV_TRACE_PC</span><span class="p">))</span>
+		<span class="n">fail</span><span class="p">(</span><span class="s">"enable write trace failed"</span><span class="p">);</span>
+	<span class="n">close</span><span class="p">(</span><span class="n">kcov</span><span class="p">);</span>
+
+ 	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="kt">void</span> <span class="n">kcov_start</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="n">__atomic_store_n</span><span class="p">(</span><span class="o">&amp;</span><span class="n">kcov_data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">__ATOMIC_RELAXED</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="kt">void</span> <span class="n">kcov_stop</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="kt">uint64_t</span> <span class="n">ncov</span> <span class="o">=</span> <span class="n">__atomic_load_n</span><span class="p">(</span><span class="o">&amp;</span><span class="n">kcov_data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">__ATOMIC_RELAXED</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">ncov</span> <span class="o">&gt;=</span> <span class="n">KCOV_COVER_SIZE</span><span class="p">)</span>
+		<span class="n">fail</span><span class="p">(</span><span class="s">"too much cover: %llu"</span><span class="p">,</span> <span class="n">ncov</span><span class="p">);</span>
+	<span class="k">for</span> <span class="p">(</span><span class="kt">uint64_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">ncov</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+		<span class="kt">uint64_t</span> <span class="n">pc</span> <span class="o">=</span> <span class="n">__atomic_load_n</span><span class="p">(</span><span class="o">&amp;</span><span class="n">kcov_data</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">__ATOMIC_RELAXED</span><span class="p">);</span>
+		<span class="n">libfuzzer_coverage</span><span class="p">[</span><span class="n">pc</span> <span class="o">%</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">libfuzzer_coverage</span><span class="p">)]</span><span class="o">++</span><span class="p">;</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="n">fail</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">msg</span><span class="p">,</span> <span class="p">...)</span>
+<span class="p">{</span>
+	<span class="kt">int</span> <span class="n">e</span> <span class="o">=</span> <span class="n">errno</span><span class="p">;</span>
+	<span class="kt">va_list</span> <span class="n">args</span><span class="p">;</span>
+	<span class="n">va_start</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">msg</span><span class="p">);</span>
+	<span class="n">vfprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">args</span><span class="p">);</span>
+	<span class="n">va_end</span><span class="p">(</span><span class="n">args</span><span class="p">);</span>
+	<span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">" (errno %d)</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">e</span><span class="p">);</span>
+	<span class="n">_exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">DEFINE_PROTO_FUZZER</span><span class="p">(</span><span class="k">const</span> <span class="n">libfuzzer_example</span><span class="o">::</span><span class="n">Msg</span><span class="o">&amp;</span> <span class="n">message</span><span class="p">)</span> <span class="p">{</span>
+<span class="n">protobuf_mutator</span><span class="o">::</span><span class="n">protobuf</span><span class="o">::</span><span class="n">FileDescriptorProto</span> <span class="n">file</span><span class="p">;</span>
+
+        <span class="n">kcov_start</span><span class="p">();</span>
+        <span class="c1">// your logic should be here:</span>
+
+        <span class="c1">// std::cerr &lt;&lt; message.DebugString() &lt;&lt; "\n";	</span>
+        <span class="c1">// Emulate a bug.</span>
+        <span class="c1">//int fd = syscall(SYS_open, "example.txt", 4, message.sample_int());</span>
+        <span class="kt">int</span> <span class="n">fd</span> <span class="o">=</span> <span class="n">syscall</span><span class="p">(</span><span class="n">SYS_open</span><span class="p">,</span> <span class="s">"example.txt"</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mh">0x4141</span><span class="p">);</span>
+        <span class="n">syscall</span><span class="p">(</span><span class="n">SYS_close</span><span class="p">,</span><span class="n">fd</span><span class="p">);</span>
+
+        <span class="n">kcov_stop</span><span class="p">();</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>build the libprotobuf-mutator</p>
+
+<p>the interesting parts begin, now if the kasan panics, libfuzzer dosen’t have a way to know it and it will discard the sample,so to save the sample that triggered the crash we have to tell to libfuzzer that kernel has paniced.</p>
+
+<p>At first I used others ways to let the fuzzer know about panic but I decied to mimic SIGSEGV and send signal to libfuzzer when there is a kasan panic in kernel. add send_sigsegv_to_process function to print_error_description in /mm/kasan/report.c</p>
+
+<p>make sure 
+“kernel.panic_on_warn” and 
+“kernel.panic_on_oops”
+are set to “0”</p>
 
 <figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="cp">#include</span> <span class="cpf">&lt;linux/sched/signal.h&gt;</span><span class="cp">
 #include</span> <span class="cpf">&lt;linux/sched.h&gt;</span><span class="cp">
@@ -192,12 +336,9 @@ RUN apt-get clean <span class="o">&amp;&amp;</span> <span class="nb">rm</span> <
         <span class="n">send_sig_info</span><span class="p">(</span><span class="n">SIGSEGV</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">info</span><span class="p">,</span> <span class="n">current</span><span class="p">);</span>
 <span class="p">}</span>
 
-
-
 <span class="k">static</span> <span class="kt">void</span> <span class="n">print_error_description</span><span class="p">(</span><span class="k">struct</span> <span class="nc">kasan_report_info</span> <span class="o">*</span><span class="n">info</span><span class="p">)</span>
 <span class="p">{</span>
 
-        <span class="c1">//debugfs_create_dir("panic_meysam", NULL);</span>
         <span class="n">send_sigsegv_to_process</span><span class="p">((</span><span class="kt">void</span><span class="o">*</span><span class="p">)</span><span class="n">info</span><span class="o">-&gt;</span><span class="n">access_addr</span><span class="p">);</span>
 
         <span class="n">pr_err</span><span class="p">(</span><span class="s">"BUG: KASAN: %s in %pS</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">info</span><span class="o">-&gt;</span><span class="n">bug_type</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="n">info</span><span class="o">-&gt;</span><span class="n">ip</span><span class="p">);</span>
@@ -218,105 +359,8 @@ RUN apt-get clean <span class="o">&amp;&amp;</span> <span class="nb">rm</span> <
                         <span class="n">info</span><span class="o">-&gt;</span><span class="n">access_addr</span><span class="p">,</span> <span class="n">current</span><span class="o">-&gt;</span><span class="n">comm</span><span class="p">,</span> <span class="n">task_pid_nr</span><span class="p">(</span><span class="n">current</span><span class="p">));</span>
 <span class="p">}</span></code></pre></figure>
 
-<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="cp">#include</span> <span class="cpf">&lt;cmath&gt;</span><span class="cp">
-#include</span> <span class="cpf">&lt;iostream&gt;</span><span class="cp">
-</span>
+<p>now you can boot the new kernel and run the fuzzer with</p>
 
-<span class="cp">#include</span> <span class="cpf">"examples/libfuzzer/libfuzzer_example.pb.h"</span><span class="cp">
-#include</span> <span class="cpf">"port/protobuf.h"</span><span class="cp">
-#include</span> <span class="cpf">"src/libfuzzer/libfuzzer_macro.h"</span><span class="cp">
-#include</span> <span class="cpf">&lt;errno.h&gt;</span><span class="cp">
-#include</span> <span class="cpf">&lt;fcntl.h&gt;</span><span class="cp">
-#include</span> <span class="cpf">&lt;linux/bpf.h&gt;</span><span class="cp">
-#include</span> <span class="cpf">&lt;memory.h&gt;</span><span class="cp">
-#include</span> <span class="cpf">&lt;stdarg.h&gt;</span><span class="cp">
-#include</span> <span class="cpf">&lt;stdint.h&gt;</span><span class="cp">
-#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
-#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">
-#include</span> <span class="cpf">&lt;sys/ioctl.h&gt;</span><span class="cp">
-#include</span> <span class="cpf">&lt;sys/mman.h&gt;</span><span class="cp">
-#include</span> <span class="cpf">&lt;sys/stat.h&gt;</span><span class="cp">
-#include</span> <span class="cpf">&lt;sys/syscall.h&gt;</span><span class="cp">
-#include</span> <span class="cpf">&lt;sys/types.h&gt;</span><span class="cp">
-#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp">
-</span>
-<span class="kt">void</span> <span class="nf">fail</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">msg</span><span class="p">,</span> <span class="p">...);</span>
-<span class="kt">void</span> <span class="nf">cover_start</span><span class="p">();</span>
-<span class="kt">void</span> <span class="nf">cover_stop</span><span class="p">();</span>
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell"> ../virtme/virtme-run <span class="nt">--kimg</span> <span class="nb">arch</span>/x86/boot/bzImage <span class="nt">--rwdir</span> ../testfuzz/ <span class="nt">--qemu-opts</span>  <span class="nt">-m</span> 2G <span class="nt">-smp</span> 2 <span class="nt">-enable-kvm</span></code></pre></figure>
 
-
-<span class="cp">#define KCOV_COVER_SIZE (256 &lt;&lt; 10)
-#define KCOV_TRACE_PC 0
-#define KCOV_INIT_TRACE64 _IOR('c', 1, uint64_t)
-#define KCOV_ENABLE _IO('c', 100)
-</span>
-<span class="n">__attribute__</span><span class="p">((</span><span class="n">section</span><span class="p">(</span><span class="s">"__libfuzzer_extra_counters"</span><span class="p">)))</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">libfuzzer_coverage</span><span class="p">[</span><span class="mi">32</span> <span class="o">&lt;&lt;</span> <span class="mi">10</span><span class="p">];</span>
-<span class="kt">uint64_t</span><span class="o">*</span> <span class="n">kcov_data</span><span class="p">;</span>
-
-
-
-
-<span class="k">extern</span> <span class="s">"C"</span> <span class="kt">int</span> <span class="nf">LLVMFuzzerInitialize</span><span class="p">(</span><span class="kt">int</span> <span class="o">*</span><span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">***</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
-	
-	<span class="kt">int</span> <span class="n">kcov</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="s">"/sys/kernel/debug/kcov"</span><span class="p">,</span> <span class="n">O_RDWR</span><span class="p">);</span>
-	<span class="k">if</span> <span class="p">(</span><span class="n">kcov</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-		<span class="n">fail</span><span class="p">(</span><span class="s">"open of /sys/kernel/debug/kcov failed"</span><span class="p">);</span>
-	<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">kcov</span><span class="p">,</span> <span class="n">KCOV_INIT_TRACE64</span><span class="p">,</span> <span class="n">KCOV_COVER_SIZE</span><span class="p">))</span>
-		<span class="n">fail</span><span class="p">(</span><span class="s">"cover init trace write failed"</span><span class="p">);</span>
-	<span class="n">kcov_data</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)</span><span class="n">mmap</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">KCOV_COVER_SIZE</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">kcov_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
-				    <span class="n">PROT_READ</span> <span class="o">|</span> <span class="n">PROT_WRITE</span><span class="p">,</span> <span class="n">MAP_SHARED</span><span class="p">,</span> <span class="n">kcov</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
-	<span class="k">if</span> <span class="p">(</span><span class="n">kcov_data</span> <span class="o">==</span> <span class="n">MAP_FAILED</span><span class="p">)</span>
-		<span class="n">fail</span><span class="p">(</span><span class="s">"cover mmap failed"</span><span class="p">);</span>
-	<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">kcov</span><span class="p">,</span> <span class="n">KCOV_ENABLE</span><span class="p">,</span> <span class="n">KCOV_TRACE_PC</span><span class="p">))</span>
-		<span class="n">fail</span><span class="p">(</span><span class="s">"cover enable write trace failed"</span><span class="p">);</span>
-	<span class="n">close</span><span class="p">(</span><span class="n">kcov</span><span class="p">);</span>
-
- 	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span>
-
-
-
-
-<span class="kt">void</span> <span class="n">cover_start</span><span class="p">()</span>
-<span class="p">{</span>
-	<span class="n">__atomic_store_n</span><span class="p">(</span><span class="o">&amp;</span><span class="n">kcov_data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">__ATOMIC_RELAXED</span><span class="p">);</span>
-<span class="p">}</span>
-
-<span class="kt">void</span> <span class="n">cover_stop</span><span class="p">()</span>
-<span class="p">{</span>
-	<span class="kt">uint64_t</span> <span class="n">ncov</span> <span class="o">=</span> <span class="n">__atomic_load_n</span><span class="p">(</span><span class="o">&amp;</span><span class="n">kcov_data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">__ATOMIC_RELAXED</span><span class="p">);</span>
-	
-	
-	
-	<span class="k">if</span> <span class="p">(</span><span class="n">ncov</span> <span class="o">&gt;=</span> <span class="n">KCOV_COVER_SIZE</span><span class="p">)</span>
-		<span class="n">fail</span><span class="p">(</span><span class="s">"too much cover: %llu"</span><span class="p">,</span> <span class="n">ncov</span><span class="p">);</span>
-	<span class="k">for</span> <span class="p">(</span><span class="kt">uint64_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">ncov</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
-		<span class="kt">uint64_t</span> <span class="n">pc</span> <span class="o">=</span> <span class="n">__atomic_load_n</span><span class="p">(</span><span class="o">&amp;</span><span class="n">kcov_data</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">__ATOMIC_RELAXED</span><span class="p">);</span>
-<span class="c1">//	        printf("0x%lx\n", kcov_data[i + 1]);</span>
-		<span class="n">libfuzzer_coverage</span><span class="p">[</span><span class="n">pc</span> <span class="o">%</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">libfuzzer_coverage</span><span class="p">)]</span><span class="o">++</span><span class="p">;</span>
-	<span class="p">}</span>
-<span class="p">}</span>
-
-
-
-<span class="kt">void</span> <span class="n">fail</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">msg</span><span class="p">,</span> <span class="p">...)</span>
-<span class="p">{</span>
-	<span class="kt">int</span> <span class="n">e</span> <span class="o">=</span> <span class="n">errno</span><span class="p">;</span>
-	<span class="kt">va_list</span> <span class="n">args</span><span class="p">;</span>
-	<span class="n">va_start</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">msg</span><span class="p">);</span>
-	<span class="n">vfprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">args</span><span class="p">);</span>
-	<span class="n">va_end</span><span class="p">(</span><span class="n">args</span><span class="p">);</span>
-	<span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">" (errno %d)</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">e</span><span class="p">);</span>
-	<span class="n">_exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
-<span class="p">}</span>
-
-<span class="n">DEFINE_PROTO_FUZZER</span><span class="p">(</span><span class="k">const</span> <span class="n">libfuzzer_example</span><span class="o">::</span><span class="n">Msg</span><span class="o">&amp;</span> <span class="n">message</span><span class="p">)</span> <span class="p">{</span>
-<span class="n">protobuf_mutator</span><span class="o">::</span><span class="n">protobuf</span><span class="o">::</span><span class="n">FileDescriptorProto</span> <span class="n">file</span><span class="p">;</span>
-
-        <span class="n">cover_start</span><span class="p">();</span>
-         <span class="c1">// std::cerr &lt;&lt; message.DebugString() &lt;&lt; "\n";	</span>
-        <span class="c1">// Emulate a bug.</span>
-        <span class="kt">int</span> <span class="n">fd</span> <span class="o">=</span> <span class="n">syscall</span><span class="p">(</span><span class="n">SYS_open</span><span class="p">,</span> <span class="s">"example.txt"</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">message</span><span class="p">.</span><span class="n">sample_int</span><span class="p">());</span>
-        <span class="n">syscall</span><span class="p">(</span><span class="n">SYS_close</span><span class="p">,</span><span class="n">fd</span><span class="p">);</span>
-        <span class="n">cover_stop</span><span class="p">();</span>
-<span class="p">}</span></code></pre></figure>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[# Use a base image with Ubuntu FROM ubuntu:latest]]></summary></entry></feed>
+<p>so if the fuzzer triggers a panic it will tell the fuzzer and libfuzzer will save the sample into testfuzz, which is where i have copied my fuzzer.</p>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[I just wanted to expreirnace with kcov and see how can I hook it into libfuzzer, my final goal was to be able to build kernel without spending too much on building root file system.]]></summary></entry></feed>
