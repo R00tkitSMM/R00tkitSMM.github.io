@@ -15,6 +15,7 @@ they have had answered my second question on how to boot newly built linux kerne
 [virtme](https://github.com/amluto/virtme)
 so basicall Virtme is a set of simple tools to run a virtualized Linux kernel that uses the host Linux distribution or a simple rootfs instead of a whole disk image.
 Virtme is tiny, easy to use, and makes testing kernel changes quite simple.
+I also borrowd some script from them. 
 
 So let's get started:
 clone virtme and linux kernel 
