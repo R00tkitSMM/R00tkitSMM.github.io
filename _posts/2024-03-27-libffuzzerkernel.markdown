@@ -4,8 +4,8 @@ title: "Structure-Aware linux kernel Fuzzing with libFuzzer"
 date: 2024-03-27 22:27:59 +0100
 categories: fuzzing
 ---
-
-I just wanted to experiment with <mark>KCOV</mark> and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.
+Hi everyone! I'm really happy to tell you about my experimenting adventure today.
+I decided to experiment with <mark>KCOV</mark> and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.
 
 First of all why not just using syzkaller? because why not? this may cover more State space.
 
