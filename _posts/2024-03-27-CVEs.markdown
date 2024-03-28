@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "CVEs and reported Vulnerabilities"
+title:  "CVEs and reported vulnerabilities"
 date:   2024-03-27 22:27:59 +0100
 categories: fuzzing
 ---
