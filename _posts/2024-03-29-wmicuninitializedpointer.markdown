@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "CVE-2016-0040 Story of Uninitialized Pointer in Windows Kernel"
-date: 2024-03-27 22:27:59 +0100
+date: 2024-03-29 22:27:59 +0100
 categories: fuzzing
 ---
 
@@ -121,7 +121,6 @@ if ( v45 | BYTE3(PIRP) ) { v13 = v37; if ( v11 &v37 )
 * The bug can be triggered even in low integrity contexts.
 *  It's unrelated to win32k.sys, meaning it ignores the "Win32k system call disable policy", for instance in Chrome browser.
 * It works with the default OS configuration, providing a universal sandbox bypass.
-
 
 sample poc for the vulnerability
 {% highlight cpp %}
