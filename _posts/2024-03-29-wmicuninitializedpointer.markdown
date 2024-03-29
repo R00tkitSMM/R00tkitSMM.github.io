@@ -10,7 +10,7 @@ This post is a resharing of a blog I wrote about a vulnerability I discovered in
 
 
 this vulnerablity is interesting for three reseaons 
-* it gave Write arbitrary data to arbitrary address.
+* it gave Write arbitrary data to arbitrary address primitive. 
 * it has an amusing story associated with it. after my discovery of this vulnerability, I shared a tweet about it, which caught the attention of researchers from Microsoft. Remarkably, they were able to discern the root cause of the vulnerability simply by examining my tweet.
 you can read their story in [MSRC blog](https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/)
 
