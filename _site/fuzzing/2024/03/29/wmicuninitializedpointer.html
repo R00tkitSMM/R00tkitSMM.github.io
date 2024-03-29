@@ -53,7 +53,7 @@
 
 <p>this vulnerablity is interesting for three reseaons</p>
 <ul>
-  <li>it gave Write arbitrary data to arbitrary address.</li>
+  <li>it gave Write arbitrary data to arbitrary address primitive.</li>
   <li>it has an amusing story associated with it. after my discovery of this vulnerability, I shared a tweet about it, which caught the attention of researchers from Microsoft. Remarkably, they were able to discern the root cause of the vulnerability simply by examining my tweet.
 you can read their story in <a href="https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/">MSRC blog</a></li>
 </ul>
@@ -97,7 +97,7 @@ you can read their story in <a href="https://msrc.microsoft.com/blog/2017/06/tal
 
 <p>Utilizing an uninitialized local variable as a pointer to write arbitrary data to its referenced location requires the attacker to employ a stack spraying technique for successful exploitation. This vulnerability presents a “write-what-where” condition, offering multiple ways for exploitation, such as zero ACL or SET token permission.</p>
 
-<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="kt">int</span> <span class="n">__userpurge</span> <span class="n">WmipReceiveNotifications</span> <span class="err">@</span><span class="p">(</span><span class="kt">int</span> <span class="n">SystemBuffer</span> <span class="err">@</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">int</span> <span class="o">*</span> <span class="n">OutputBufferSize</span><span class="p">,</span> <span class="n">PVOID</span> <span class="n">PIRP</span><span class="p">)</span> <span class="p">{</span>
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="kt">int</span> <span class="n">__userpurge</span> <span class="nf">WmipReceiveNotifications</span><span class="p">(</span><span class="kt">int</span> <span class="n">SystemBuffer</span> <span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">int</span> <span class="o">*</span> <span class="n">OutputBufferSize</span><span class="p">,</span> <span class="n">PVOID</span> <span class="n">PIRP</span><span class="p">)</span> <span class="p">{</span>
      <span class="p">...</span>
      <span class="p">...</span>
  
@@ -190,9 +190,8 @@ you can read their story in <a href="https://msrc.microsoft.com/blog/2017/06/tal
 <span class="p">}</span>
 <span class="n">WMIRECEIVENOTIFICATION</span><span class="p">,</span> <span class="o">*</span> <span class="n">PWMIRECEIVENOTIFICATION</span><span class="p">;</span>
  
-<span class="cp">#
-</span><span class="n">define</span> <span class="n">RECEIVE_ACTION_CREATE_THREAD</span> <span class="mi">2</span> <span class="c1">// Mark guid objects as requiring</span>
- 
+<span class="cp">#define RECEIVE_ACTION_CREATE_THREAD 2 // Mark guid objects as requiring
+</span> 
 <span class="k">typedef</span> <span class="k">struct</span> <span class="p">{</span>
     <span class="n">IN</span> <span class="n">VOID</span> <span class="o">*</span> <span class="n">ObjectAttributes</span><span class="p">;</span>
     <span class="n">IN</span> <span class="n">ACCESS_MASK</span> <span class="n">DesiredAccess</span><span class="p">;</span>
@@ -201,10 +200,9 @@ you can read their story in <a href="https://msrc.microsoft.com/blog/2017/06/tal
 <span class="p">}</span>
 <span class="n">WMIOPENGUIDBLOCK</span><span class="p">,</span> <span class="o">*</span> <span class="n">PWMIOPENGUIDBLOCK</span><span class="p">;</span>
  
-<span class="cp">#
-</span><span class="n">define</span> <span class="n">IOCTL_WMI_ENUMERATE_GUIDS</span>\
-<span class="n">CTL_CODE</span><span class="p">(</span><span class="n">FILE_DEVICE_UNKNOWN</span><span class="p">,</span> <span class="n">WmiEnumerateGuidList</span><span class="p">,</span> <span class="n">METHOD_BUFFERED</span><span class="p">,</span> <span class="n">FILE_READ_ACCESS</span><span class="p">)</span>
- 
+<span class="cp">#define IOCTL_WMI_ENUMERATE_GUIDS\
+CTL_CODE(FILE_DEVICE_UNKNOWN, WmiEnumerateGuidList, METHOD_BUFFERED, FILE_READ_ACCESS)
+</span> 
 <span class="kt">void</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
     <span class="n">DWORD</span> <span class="n">dwBytesReturned</span><span class="p">;</span>
     <span class="n">HANDLE</span> <span class="n">threadhandle</span><span class="p">;</span>
@@ -245,7 +243,7 @@ you can read their story in <a href="https://msrc.microsoft.com/blog/2017/06/tal
     <div class="footer-col-wrapper">
       <div class="footer-col footer-col-1">
         <ul class="contact-list">
-          <li class="p-name">My interesting researches</li><li><a class="u-email" href="mailto:mml@example.com">mml@example.com</a></li></ul>
+          <li class="p-name">My interesting researches</li><li><a class="u-email" href="mailto:firozimaysam at gmail.com">firozimaysam at gmail.com</a></li></ul>
       </div>
 
       <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">R00tkitSMM</span></a></li><li><a href="https://www.twitter.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#twitter"></use></svg> <span class="username">R00tkitSMM</span></a></li></ul>
