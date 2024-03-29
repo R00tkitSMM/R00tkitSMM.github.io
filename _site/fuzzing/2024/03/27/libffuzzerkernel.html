@@ -7,8 +7,8 @@
 <meta name="generator" content="Jekyll v3.9.0" />
 <meta property="og:title" content="Structure-Aware linux kernel Fuzzing with libFuzzer" />
 <meta property="og:locale" content="en_US" />
-<meta name="description" content="I just wanted to experiment with KCOV and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system." />
-<meta property="og:description" content="I just wanted to experiment with KCOV and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system." />
+<meta name="description" content="Hi everyone! I’m really happy to tell you about my experimenting adventure today. I decided to experiment with KCOV and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system." />
+<meta property="og:description" content="Hi everyone! I’m really happy to tell you about my experimenting adventure today. I decided to experiment with KCOV and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system." />
 <link rel="canonical" href="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html" />
 <meta property="og:url" content="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html" />
 <meta property="og:site_name" content="My interesting researches" />
@@ -17,7 +17,7 @@
 <meta name="twitter:card" content="summary" />
 <meta property="twitter:title" content="Structure-Aware linux kernel Fuzzing with libFuzzer" />
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-03-27T22:27:59+01:00","datePublished":"2024-03-27T22:27:59+01:00","description":"I just wanted to experiment with KCOV and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.","headline":"Structure-Aware linux kernel Fuzzing with libFuzzer","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html"},"url":"http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html"}</script>
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-03-27T22:27:59+01:00","datePublished":"2024-03-27T22:27:59+01:00","description":"Hi everyone! I’m really happy to tell you about my experimenting adventure today. I decided to experiment with KCOV and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.","headline":"Structure-Aware linux kernel Fuzzing with libFuzzer","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html"},"url":"http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html"}</script>
 <!-- End Jekyll SEO tag -->
 <link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="My interesting researches" /></head>
 <body><header class="site-header" role="banner">
@@ -47,7 +47,8 @@
   </header>
 
   <div class="post-content e-content" itemprop="articleBody">
-    <p>I just wanted to experiment with <mark>KCOV</mark> and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.</p>
+    <p>Hi everyone! I’m really happy to tell you about my experimenting adventure today.
+I decided to experiment with <mark>KCOV</mark> and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.</p>
 
 <p>First of all why not just using syzkaller? because why not? this may cover more State space.</p>
 
@@ -56,7 +57,8 @@
 <p>they have had answered my second question on how to boot newly built linux kernel with current root file system with 
 <a href="https://github.com/amluto/virtme">virtme</a>
 so basicall Virtme is a set of simple tools to run a virtualized Linux kernel that uses the host Linux distribution or a simple rootfs instead of a whole disk image.
-Virtme is tiny, easy to use, and makes testing kernel changes quite simple.</p>
+Virtme is tiny, easy to use, and makes testing kernel changes quite simple.
+I also borrowd some script from them.</p>
 
 <p>So let’s get started:
 clone virtme and linux kernel</p>
@@ -106,9 +108,7 @@ Enable KCOV in all “fs” subdirectory:</p>
 <p>in order to provied kenrnel code coverage to libfuzzer we can use <mark>__libfuzzer_extra_counters</mark>, you can see a good example  in <a href="https://github.com/google/syzkaller/blob/master/tools/kcovfuzzer/kcovfuzzer.c">syzkaller</a>
 and its documentation in <a href="https://docs.kernel.org/dev-tools/kcov.html">kernel website</a></p>
 
-<p>I used wanted to have Structure-Aware kernel Fuzzing with libFuzzer so I deciede to use libprotobuf-mutator.
-which has show is very powerfull 
-almost every kernel attack vector is Stateful APIs. you can’t just feed raw buffer to it.</p>
+<p>almost every kernel attack vector is Stateful APIs. you can’t just feed raw buffer to it. we have to use Structure-Aware Fuzzing, I deciede to use libprotobuf-mutator, which has show is very powerfull tool.</p>
 
 <ul>
   <li><a href="https://powerofcommunity.net/poc2018/ned.pdf">poc2018</a></li>
@@ -116,7 +116,7 @@ almost every kernel attack vector is Stateful APIs. you can’t just feed raw bu
   <li><a href="https://chromium.googlesource.com/chromium/src/+/main/testing/libfuzzer/libprotobuf-mutator.md">chromium</a></li>
 </ul>
 
-<p>there are tons of resource out there about using libprotobuf-mutator
+<p>there are tons of resource out there about using libprotobuf-mutator.
 I can’t explain better then original google fuzzing doc</p>
 
 <blockquote>
