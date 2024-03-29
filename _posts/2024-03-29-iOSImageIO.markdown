@@ -25,7 +25,7 @@ Although WebP has not been fuzzed by Project Zero, it is fuzzed with Google OSS-
 
 Another important issue I noticed was that in the Project Zero's blog, ImageIO was using OpenEXR, but in my test, ImageIO was using Apple's closed-source new implementation of EXR in libAppleEXR.dylib. Therefore, I decided to fuzz these two file formats, EXR and KTX2.
 
-the Samuel Groß has modifed Honggfuzz to have a binary Coverage-guided fuzzing. but I ported Project Zero's harness to [Jackalope fuzzer](https://github.com/googleprojectzero/Jackalope) (awesome project thanks to Ivan Fratric), also I used  <mark>initWithData</mark> method of NSImage and in memory fuzzing option of Jackalope to make the fuzzing faster. 
+the Samuel Groß has modifed Honggfuzz to have a binary Coverage-guided fuzzing. but I ported Project Zero's harness to [Jackalope fuzzer](https://github.com/googleprojectzero/Jackalope) (awesome project thanks to Ivan Fratric), also I used  <mark>initWithData</mark> method of NSImage and in-memory fuzzing option of Jackalope to make the fuzzing faster. 
 
 I managed to find lots of KTX2 sample files in the following pages:
 - [https://github.com/donmccurdy/KTX-Parse/tree/main/test/data/reference](https://github.com/donmccurdy/KTX-Parse/tree/main/test/data/reference)
