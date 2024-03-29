@@ -1,25 +1,35 @@
 ---
 layout: post
 title: "CVE-2016-0040 Story of Uninitialized Pointer in Windows Kernel"
-date: 2024-03-29 22:27:59 +0100
+date: 2024-03-29 1:1:59 +0100
 categories: fuzzing
 ---
+Update:
 
 This post is a resharing of a blog I wrote about a vulnerability I discovered in Windows kernel almost a decade ago.
 
 
-this vulnerablity is interesting for two reseaons first it gave Write arbitrary data to arbitrary address, second it has an amusing story associated with it. after my discovery of this vulnerability, I shared a tweet about it, which caught the attention of researchers from Microsoft. Remarkably, they were able to discern the root cause of the vulnerability simply by examining my tweet.
+this vulnerablity is interesting for three reseaons 
+* it gave Write arbitrary data to arbitrary address.
+* it has an amusing story associated with it. after my discovery of this vulnerability, I shared a tweet about it, which caught the attention of researchers from Microsoft. Remarkably, they were able to discern the root cause of the vulnerability simply by examining my tweet.
 you can read their story in [MSRC blog](https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/)
 
 ![My image Name](/assets/tweet.png)
+* there was another vulnerablity( CVE-2016-0087) in this function I had found and I was expecting MSRC to spot it when then are auditing wmi, but they didn't.
 
 
-A few months ago, I discovered some vulnerabilities in the Windows kernel, mostly related to local privilege escalation. Microsoft patched one of the reported vulnerabilities in MS16-014. The vulnerability type is an uninitialized pointer dereference. This vulnerability can be triggered even by a process with "low integrity level", meaning that successfully exploiting this vulnerability can lead to bypassing the sandbox (for example, the IE sandbox) or generic local privilege escalation for any process.
+Original post:
+
+A few months ago, I discovered some vulnerabilities in the Windows kernel, mostly related to local privilege escalation.
+
+Microsoft patched one of the reported vulnerabilities in MS16-014. The vulnerability type is an uninitialized pointer dereference. This vulnerability can be triggered even by a process with "low integrity level", meaning that successfully exploiting this vulnerability can lead to bypassing the sandbox (for example, the IE sandbox) or generic local privilege escalation for any process.
 
 
 Here's a description of the bug:
 
-For handling some WMI functions, Windows NT creates a named device called "WMIDataDevice". This device is accessible from user mode with any permission (you can check it with WinObj). WMIDataDevice handles some IOCTLs, with the WmipReceiveNotifications function responsible for the IOCTL_WMI_ENUMERATE_GUIDS IOCTL. Based on the first DWORD of Irp->AssociatedIrp.SystemBuffer, WmipReceiveNotifications decides whether to use the stack or kernel pool as a buffer for storing data/pointers. If the first DWORD is less than or equal to 0x10, the stack is selected as the buffer.
+For handling some WMI functions, Windows NT creates a named device called <mark>WMIDataDevice</mark>.
+
+This device is accessible from user mode with any permission (you can check it with WinObj). WMIDataDevice handles some IOCTLs, with the <mark>WmipReceiveNotifications</mark> function responsible for the <mark>IOCTL_WMI_ENUMERATE_GUIDS IOCTL</mark>. Based on the first DWORD of <mark>Irp->AssociatedIrp.SystemBuffer</mark>, WmipReceiveNotifications decides whether to use the <mark>stack</mark> or <mark>kernel pool</mark> as a buffer for storing data/pointers. If the first DWORD is less than or equal to 0x10, the stack is selected as the buffer.
 
 There's another important usage of the mentioned DWORD. WmipReceiveNotifications uses this DWORD as a counter for looping and initializing the local buffer. So, if we put 0 in the first DWORD of Irp->AssociatedIrp.SystemBuffer from user mode, the function selects the stack as the buffer. As mentioned earlier, this buffer is initiated in a loop. In this case, since we passed 0, the function skips loop execution, leaving the stack buffer uninitialized.
 
@@ -122,7 +132,7 @@ if ( v45 | BYTE3(PIRP) ) { v13 = v37; if ( v11 &v37 )
 *  It's unrelated to win32k.sys, meaning it ignores the "Win32k system call disable policy", for instance in Chrome browser.
 * It works with the default OS configuration, providing a universal sandbox bypass.
 
-sample poc for the vulnerability
+Sample POC for the vulnerability
 {% highlight cpp %}
 
 typedef union {
