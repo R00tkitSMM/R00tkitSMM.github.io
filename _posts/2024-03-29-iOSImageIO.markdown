@@ -34,7 +34,7 @@ I managed to find lots of KTX2 sample files in the following pages:
 
 you can also use <mark>DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib</mark> to increase the change of finding more bugs.  
 
-My fuzzing effort found several vulnerablities you can see them in my [CVEs page](https://r00tkitsmm.github.io/fuzzing/2024/03/27/CVEs.html)
+My fuzzing effort found several vulnerabilities, you can see them in my [CVEs page](https://r00tkitsmm.github.io/fuzzing/2024/03/27/CVEs.html)
 
 
 
