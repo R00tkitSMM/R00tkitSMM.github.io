@@ -19,7 +19,7 @@ such as <mark>KTX2</mark> and <mark>WebP</mark> and <mark>ETC</mark>, so because
 
 
 
-KTX2 is a relatively new specification introduced after the Project Zero fuzzing efforts. Arguably, its source code is also new. Further information about KTX2 can be found in its specification document here: https://registry.khronos.org/KTX/specs/2.0/ktxspec_v2.html.
+KTX2 is a relatively new specification introduced after the Project Zero fuzzing efforts. Arguably, its source code is also new. Further information about KTX2 can be found in its specification document here: [registry.khronos.org](https://registry.khronos.org/KTX/specs/2.0/ktxspec_v2.html).
 
 Although WebP has not been fuzzed by Project Zero, it is fuzzed with Google OSS. So, I decided not to compete with Google's fuzzer in this regard.
 
