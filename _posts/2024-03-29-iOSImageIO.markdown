@@ -7,7 +7,7 @@ categories: fuzzing
 
 ImageIO is Apple's Framework that handles image parsing, which exposes 0click attack surface
 
-Months after reading [this blog post from Google Project Zero](https://googleprojectzero.blogspot.com/2020/04/fuzzing-imageio.html) about fuzzing ImageIO, I used LLDB to examine the testHeader functions, it turned out three new <mark>testHeader</mark> functions for different file formats.
+Months after reading [this blog post from Google Project Zero](https://googleprojectzero.blogspot.com/2020/04/fuzzing-imageio.html) about fuzzing ImageIO, I used LLDB to examine the testHeader functions, it turned out there are three new <mark>testHeader</mark> functions for different file formats.
 
 such as <mark>KTX2</mark> and <mark>WebP</mark> and <mark>ETC</mark>, so because they were fairly new I thought maybe they have not been fuzzed by Project Zero.
 
