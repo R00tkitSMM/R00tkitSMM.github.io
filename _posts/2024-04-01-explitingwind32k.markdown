@@ -5,8 +5,9 @@ date: 2024-04-01 01:27:59 +0100
 categories: fuzzing
 ---
 
-Exploiting MS15-061 with reverse engineering Win32k.sys by
+in 2015 I managed to exploit MS15-061 by reverse engineering Win32k.sys and it ended up in [Metasploit](https://en.wikipedia.org/wiki/Metasploit), you can read the blog post about it in [rapid7](https://www.rapid7.com/blog/post/2015/10/01/flipping-bits/)
 
+I'm republishing the exploit here:
 steps :
 
 * Implement a PEB callback function for hooking.
