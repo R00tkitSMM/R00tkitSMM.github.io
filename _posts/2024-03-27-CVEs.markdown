@@ -11,6 +11,7 @@ Some vulnerabilities I've reported include an intriguing story behind CVE-2016-0
 the CVE-2022-22587 vulnerability also has collision with in the wild exploits. read more about info
 Some vulnerabilities I've reported include an intriguing story behind CVE-2016-0040, which you can explore in [ thehackernews](  https://thehackernews.com/2022/12/new-actively-exploited-zero-day.html)
 
+[I also became one of the MSRC’s 2020 Most Valuable Security Researchers( ranked #40)](https://msrc.microsoft.com/blog/2020/08/announcing-2020-msrc-most-valuable-security-researchers/)
 
 
 | CVE              | Description                                                                      | Source                                        |
