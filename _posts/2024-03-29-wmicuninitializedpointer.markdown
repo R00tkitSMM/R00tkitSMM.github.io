@@ -12,7 +12,7 @@ This post is a resharing of a blog I wrote about a vulnerability I discovered in
 this vulnerablity is interesting for three reseaons 
 * it's a tweetable vulnerablity :)
 * it gave Write arbitrary data to arbitrary address primitive. 
-* it has an amusing story associated with it. after my discovery of this vulnerability, I shared a tweet about it, which caught the attention of researchers from Microsoft. Remarkably, they were able to discern the root cause of the vulnerability simply by examining my tweet.
+* it has an amusing story associated with it. after my discovery of this vulnerability, I [shared a tweet](https://web.archive.org/web/20190420082929/https://twitter.com/R00tkitSMM/status/656214430464786432) about it, which caught the attention of researchers from Microsoft. Remarkably, they were able to discern the root cause of the vulnerability simply by examining my tweet.
 you can read their story in [MSRC blog](https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/)
 
 ![My image Name](/assets/tweet.png)
