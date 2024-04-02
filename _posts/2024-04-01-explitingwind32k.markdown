@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Exploiting MS15-061 with reverse engineering Win32k.sys"
-date: 2024-03-01 01:27:59 +0100
+date: 2024-04-01 01:27:59 +0100
 categories: fuzzing
 ---
 
