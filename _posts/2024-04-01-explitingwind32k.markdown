@@ -10,11 +10,11 @@ in 2015 I managed to exploit it by reverse engineering Win32k.sys and it ended u
 I'm republishing the exploit here.
 
 steps:
-
+the code is heavly documented.
 * Implement a PEB callback function for hooking.
 * trigger a vulnerability by creating a specific window to execute the vulnerable function.
 * Within the PEB callback, substitute a fake object with NtUserDefSetText in the Desktop heap.
-* Create a fake object with a saved exit buffer (0x0c0c0c0c) and a pointer to tagWND.
+* Create a fake object with buffer (0x0c0c0c0c) and a pointer to tagWND.
 * Repeat this process until bServerSideWindowProc is set.
 
 Referenaces
