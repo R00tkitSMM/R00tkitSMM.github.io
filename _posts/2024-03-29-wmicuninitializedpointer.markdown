@@ -197,7 +197,7 @@ void main() {
 in order to exploit this vulnerablity we have to spary kernel stack memory, after talking with Mateusz Jurczyk he told me about 
 [using nt!NtMapUserPhysicalPages excellent technique to Spraying Kernel Stack memory](https://j00ru.vexillium.org/2011/05/windows-kernel-stack-spraying-techniques/) 
 
-with help of above method I managed to exploit this vulnerablity and I had a plan to participate to <mark>Pwn2Own</mark> in windows kernel catagorty. 
+with help of above method I managed to exploit this vulnerablity and I had a plan to participate to <mark>Pwn2Own</mark> in windows kernel catagorty, but Microsoft spotted my vulnerablity with a simple miskate I did by tweeting about it. 
 
 [jekyll-docs]: https://jekyllrb.com/docs/home
 [jekyll-gh]:   https://github.com/jekyll/jekyll
