@@ -15,7 +15,7 @@ steps:
 * trigger a vulnerability by creating a specific window to execute the vulnerable function.
 * Within the PEB callback, substitute a fake object with NtUserDefSetText in the Desktop heap.
 * Create a fake object with a saved exit buffer (0x0c0c0c0c) and a pointer to tagWND.
-* Repeat this process until bServerSideWindowProc is established.
+* Repeat this process until bServerSideWindowProc is set.
 
 Referenaces
 * [nccgroup](https://www.nccgroup.trust/globalassets/our-research/uk/whitepapers/2015/08/2015-08-27_-_ncc_group_-_exploiting_ms15_061_uaf_-_release.pdf)
