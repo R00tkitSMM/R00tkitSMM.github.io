@@ -5,12 +5,13 @@ date: 2024-04-01 01:27:59 +0100
 categories: fuzzing
 ---
 MS15-061 is a Use After Free Windows Kernel vulnerabilities. A malicious application can exploit it be able to execute arbitrary code with kernel privileges.
+
 in 2015 I managed to exploit it by reverse engineering Win32k.sys and it ended up in [Metasploit](https://en.wikipedia.org/wiki/Metasploit), you can read the blog post about it in [rapid7](https://www.rapid7.com/blog/post/2015/10/01/flipping-bits/).
 
 I'm republishing the exploit here.
 
-steps:
 the code is heavly documented.
+steps:
 * Implement a PEB callback function for hooking.
 * trigger a vulnerability by creating a specific window to execute the vulnerable function.
 * Within the PEB callback, substitute a fake object with NtUserDefSetText in the Desktop heap.
