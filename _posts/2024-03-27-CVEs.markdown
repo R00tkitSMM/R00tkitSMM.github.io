@@ -7,7 +7,12 @@ categories: fuzzing
 
 Some vulnerabilities I've reported include an intriguing story behind CVE-2016-0040, which you can explore in [ Microsoft's blog post]( https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/)
 
-I also had a vulnerability collision with in the wild exploits in the CVE-2022-22587(iOS/macOS kernel memory corruption). read more in[ thehackernews](  https://thehackernews.com/2022/12/new-actively-exploited-zero-day.html)
+I also had a vulnerability collision with in the wild exploits in the CVE-2022-22587(iOS/macOS kernel memory corruption). in media and news 
+* [ thehackernews](  https://thehackernews.com/2022/12/new-actively-exploited-zero-day.html)
+* [google project zero](https://googleprojectzero.blogspot.com/2022/06/2022-0-day-in-wild-exploitationso-far.html)
+* [google project zero](https://googleprojectzero.blogspot.com/2022/04/the-more-you-know-more-you-know-you.html)
+* [securityweek](https://www.securityweek.com/google-half-2022s-zero-days-are-variants-previous-vulnerabilities/)
+
 
 I also became one of [the MSRC’s 2020 Most Valuable Security Researchers( ranked #40)](https://msrc.microsoft.com/blog/2020/08/announcing-2020-msrc-most-valuable-security-researchers/)
 
