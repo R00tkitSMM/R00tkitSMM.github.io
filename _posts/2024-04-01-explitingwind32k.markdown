@@ -15,7 +15,9 @@ steps:
 * Implement a PEB callback function for hooking.
 * trigger a vulnerability by creating a specific window to execute the vulnerable function.
 * Within the PEB callback, substitute a fake object with NtUserDefSetText in the Desktop heap.
-* Create a fake object with buffer (0x0c0c0c0c) and a pointer to tagWND.
+* Create a fake object with buffer (0x0c0c0c0c) and a pointer to tagWND. for safe exit: i used trick like Browser Fake vTable:
+    allocate 0x0c0c0c0c address and fill tagWND with 0x0c0c0c0c
+    so every dereference  will have a valid address in 0x0c0c0c0c range, this method can't work on [SMAP](https://en.wikipedia.org/wiki/Supervisor_Mode_Access_Prevention)
 * Repeat this process until bServerSideWindowProc is set.
 
 Referenaces
@@ -341,7 +343,7 @@ void init()
         PAGE_READWRITE);          // Protection = no access
 
     /*
-    for save exit  : i used trick like  Browser Fake vTable :
+    for safe exit  : i used trick like  Browser Fake vTable :
     allocate 0x0c0c0c0c address and  fill tagWND with 0x0c0c0c0c
     so every dereference  will loop in 0x0c0c0c0c
 
