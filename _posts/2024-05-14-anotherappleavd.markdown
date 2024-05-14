@@ -10,6 +10,7 @@ categories: fuzzing
 tested on M1
 
 {% highlight shell %}
+// vtdecode.m 
 #include <dlfcn.h>
 #include <stdio.h>
 #import <AVFoundation/AVFoundation.h>
@@ -93,6 +94,7 @@ int main(int argc, const char *argv[]) {
 {% endhighlight %}
 
 {% highlight cpp %}
+// flip.c
 #include <IOKit/IOKitLib.h>
 #include <dlfcn.h>
 #include <execinfo.h>
