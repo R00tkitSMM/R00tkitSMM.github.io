@@ -45,4 +45,6 @@ I also became one of [the MSRC’s 2020 Most Valuable Security Researchers( rank
 | CVE-2023-42899   | Processing an image may lead to arbitrary code execution in iOS, MacOS            | Apple Support                                |
 | CVE-2023-42865   | Processing an image may lead to arbitrary code execution in iOS, MacOS            | Apple Support                                |
 | CVE-2023-42862   | Processing an image may lead to arbitrary code execution in iOS, MacOS            | Apple Support                                |
-| CVE-2024-23264   | An application may be able to read restricted memory in iOS, MacOS                | Apple Support                                |
+| CVE-2024-23264   | An application may be able to read restricted memory in iOS, MacOS                | Apple Support   
+| CVE-2024-27804   | iOS kernel Memory Corruption. Impact: Arbitrary code execution with kernel privileges | [Apple Support](https://support.apple.com/en-gb/HT214101)                        |
+
