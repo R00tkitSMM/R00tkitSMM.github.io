@@ -84,7 +84,7 @@ make
 {% endhighlight %}
 
 then inside the shell run the following code.
-
+poc:
 {% highlight cpp %}
 #include <stdio.h>
 #include <fcntl.h>
@@ -176,7 +176,6 @@ panic log:
 {% highlight shell %}
 [   17.000245] BUG: KASAN: slab-use-after-free in p9_client_getattr_dotl+0x170/0x190
 [   17.000938] Read of size 8 at addr ffff88810590ad00 by task 9poc/151
-
 [   17.001713] CPU: 2 PID: 151 Comm: 9poc Tainted: G        W          6.8.0 #83
 [   17.002433] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.15.0-1 04/01/2014
 [   17.003866] Call Trace:
@@ -208,7 +207,6 @@ panic log:
 [   17.017506] R10: 0000000000000000 R11: 0000000000000213 R12: 00007f3d8fc39640
 [   17.018138] R13: 0000000000000000 R14: 00007f3d8fcd17d0 R15: 00007fff30463de0
 [   17.018788]  </TASK>
-
 [   17.019363] Allocated by task 151:
 [   17.019686]  kasan_save_stack+0x24/0x50
 [   17.020093]  kasan_save_track+0x14/0x30
@@ -223,7 +221,6 @@ panic log:
 [   17.023725]  __x64_sys_openat+0x11e/0x1e0
 [   17.024095]  do_syscall_64+0xcc/0x1e0
 [   17.024445]  entry_SYSCALL_64_after_hwframe+0x6f/0x77
-
 [   17.025218] Freed by task 152:
 [   17.025506]  kasan_save_stack+0x24/0x50
 [   17.025909]  kasan_save_track+0x14/0x30
