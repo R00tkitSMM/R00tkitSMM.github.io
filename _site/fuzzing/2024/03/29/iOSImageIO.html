@@ -49,7 +49,7 @@
   <div class="post-content e-content" itemprop="articleBody">
     <p>ImageIO is Apple’s Framework that handles image parsing, which exposes 0click attack surface</p>
 
-<p>Months after reading <a href="https://googleprojectzero.blogspot.com/2020/04/fuzzing-imageio.html">this blog post from Google Project Zero</a> about fuzzing in ImageIO, I used LLDB to examine the testHeader functions, it turned out three new <mark>testHeader</mark> functions for different file formats.</p>
+<p>Months after reading <a href="https://googleprojectzero.blogspot.com/2020/04/fuzzing-imageio.html">this blog post from Google Project Zero</a> about fuzzing ImageIO, I used LLDB to examine the testHeader functions, it turned out there are three new <mark>testHeader</mark> functions for different file formats.</p>
 
 <p>such as <mark>KTX2</mark> and <mark>WebP</mark> and <mark>ETC</mark>, so because they were fairly new I thought maybe they have not been fuzzed by Project Zero.</p>
 
@@ -57,13 +57,13 @@
 1.26: where <span class="o">=</span> ImageIO<span class="sb">`</span>IIO_Reader_WebP::testHeader<span class="o">(</span>unsigned char const<span class="k">*</span>, unsigned long, __CFString const<span class="k">*</span><span class="o">)</span>, address <span class="o">=</span> 0x00007ff81341f368, resolved, hit count <span class="o">=</span> 0 
 1.31: where <span class="o">=</span> ImageIO<span class="sb">`</span>IIO_Reader_ETC::testHeader<span class="o">(</span>unsigned char const<span class="k">*</span>, unsigned long, __CFString const<span class="k">*</span><span class="o">)</span>, address <span class="o">=</span> 0x00007ff8134dd1c6, resolved, hit count <span class="o">=</span> 2</code></pre></figure>
 
-<p>KTX2 is a relatively new specification introduced after the Project Zero fuzzing efforts. Arguably, its source code is also new. Further information about KTX2 can be found in its specification document here: https://registry.khronos.org/KTX/specs/2.0/ktxspec_v2.html.</p>
+<p>KTX2 is a relatively new specification introduced after the Project Zero fuzzing efforts. Arguably, its source code is also new. Further information about KTX2 can be found in its specification document here: <a href="https://registry.khronos.org/KTX/specs/2.0/ktxspec_v2.html">khronos.org</a>.</p>
 
-<p>Although WebP has not been fuzzed by Project Zero, it is fuzzed with Google OSS. So, I decided not to compete with Google’s fuzzer in this regard.</p>
+<p>Although WebP has not been fuzzed by Project Zero, it is fuzzed with Google OSS-Fuzz. So I decided not to compete with Google’s fuzzer in this regard.</p>
 
-<p>Another important issue I noticed was that in the Project Zero’s blog, ImageIO was using OpenEXR, but in my test, ImageIO was using Apple’s closed-source new implementation of EXR in libAppleEXR.dylib. Therefore, I decided to fuzz these two file formats, EXR and KTX2.</p>
+<p>Another important issue I noticed was that in the Project Zero’s blog, ImageIO was using <mark>OpenEXR</mark>, but in my test, ImageIO was using Apple’s closed-source new implementation of EXR in <mark>libAppleEXR.dylib</mark>. Therefore, I decided to fuzz these two file formats, EXR and KTX2.</p>
 
-<p>the Samuel Groß has modifed Honggfuzz to have a binary Coverage-guided fuzzing. but I ported Project Zero’s harness to Jackalope fuzzer (awesome project thanks to Ivan Fratric), also I used initWithData method of NSImage and in memory fuzzing option of Jackalope to make the fuzzing faster.</p>
+<p>the Samuel Groß has modifed Honggfuzz to have a binary Coverage-guided fuzzing. but I ported Project Zero’s harness to <a href="https://github.com/googleprojectzero/Jackalope">Jackalope fuzzer</a> (awesome project thanks to Ivan Fratric), also I used  <mark>initWithData</mark> method of NSImage and in-memory fuzzing option of Jackalope to make the fuzzing faster.</p>
 
 <p>I managed to find lots of KTX2 sample files in the following pages:</p>
 <ul>
@@ -73,7 +73,7 @@
 
 <p>you can also use <mark>DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib</mark> to increase the change of finding more bugs.</p>
 
-<p>My fuzzing effort found several vulnerablities you can see them in my <a href="https://r00tkitsmm.github.io/fuzzing/2024/03/27/CVEs.html">CVEs page</a></p>
+<p>My fuzzing effort found several vulnerabilities, you can see them in my <a href="https://r00tkitsmm.github.io/fuzzing/2024/03/27/CVEs.html">CVEs page</a></p>
 
 <figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="cp">#include</span> <span class="cpf">&lt;Foundation/Foundation.h&gt;</span><span class="cp">
 #include</span> <span class="cpf">&lt;Foundation/NSURL.h&gt;</span><span class="cp">

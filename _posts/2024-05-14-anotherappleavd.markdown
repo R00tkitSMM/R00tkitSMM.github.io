@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "AppleAVD"
+title: "CVE-2024-27804 Vulnerability in AppleAVD"
 date: 2024-05-14 1:1:1 +0100
 categories: fuzzing
 ---
