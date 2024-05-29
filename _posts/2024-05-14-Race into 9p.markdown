@@ -81,7 +81,9 @@ cd linux
 ../virtme/virtme-configkernel  --defconfig
 /scripts/config -e KASAN -e KASAN_INLINE -e WARNING
 make 
+../virtme/virtme-run --kimg arch/x86/boot/bzImage --rwdir ../testfuzz/ --qemu-opts  -m 2G -smp 2 -enable-kvm
 {% endhighlight %}
+
 
 then inside the shell run the following code.
 poc:
