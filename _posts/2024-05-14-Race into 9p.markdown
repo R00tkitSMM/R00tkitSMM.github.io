@@ -51,7 +51,7 @@ static void v9fs_dentry_release(struct dentry *dentry)
 {% endhighlight %}
 
 fix:
-[/fs/9p/vfs_dentry.c](https://github.com/martinetd/linux/commit/c898afdc15645efb555acb6d85b484eb40a45409)
+[/fs/9p/vfs_dentry.c](https://github.com/torvalds/linux/commit/c898afdc15645efb555acb6d85b484eb40a45409)
 {% highlight cpp %}
 
 static void v9fs_dentry_release(struct dentry *dentry)
