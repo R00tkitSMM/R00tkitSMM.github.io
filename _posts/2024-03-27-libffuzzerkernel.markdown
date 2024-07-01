@@ -123,9 +123,10 @@ void kcov_stop();
 
 __attribute__((section("__libfuzzer_extra_counters"))) unsigned char libfuzzer_coverage[32 << 10];
 uint64_t* kcov_data;
+int kcov;
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
 	
-	int kcov = open("/sys/kernel/debug/kcov", O_RDWR);
+	kcov = open("/sys/kernel/debug/kcov", O_RDWR);
 	if (kcov <mark>-1)
 		fail("open of /sys/kernel/debug/kcov failed");
 	if (ioctl(kcov, KCOV_INIT_TRACE64, KCOV_COVER_SIZE))
@@ -136,13 +137,15 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
 		fail("mmap failed");
 	if (ioctl(kcov, KCOV_ENABLE, KCOV_TRACE_PC))
 		fail("enable write trace failed");
-	close(kcov);
+	//close(kcov); // where to close this?
 
  	return 0;
 }
 void kcov_start()
 {
 	__atomic_store_n(&kcov_data[0], 0, __ATOMIC_RELAXED);
+ 	 if (ioctl(kcov, KCOV_ENABLE, KCOV_TRACE_PC))
+             perror("ioctl"), exit(1);
 }
 void kcov_stop()
 {
@@ -153,6 +156,8 @@ void kcov_stop()
 		uint64_t pc = __atomic_load_n(&kcov_data[i + 1], __ATOMIC_RELAXED);
 		libfuzzer_coverage[pc % sizeof(libfuzzer_coverage)]++;
 	}
+ 	if (ioctl(kcov, KCOV_DISABLE, 0))
+            perror("ioctl"), exit(1);
 }
 
 void fail(const char* msg, ...)
