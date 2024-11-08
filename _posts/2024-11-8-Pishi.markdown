@@ -917,7 +917,7 @@ We might be able to locally mount the SMB and run the harness there, without nee
 but using VM is more generic way.
 
 #### Another approach?
-I was considering an alternative approach If everything had failed, the well known method of replacing each BB of a target KEXT with a [breakpoint](https://developer.arm.com/documentation/102120/0101/Debug-exceptions), then boot a `Boot Kext Collection` with modified [EL1 exception handler](https://github.com/apple-oss-distributions/xnu/blob/8d741a5de7ff4191bf97d57b9f54c2f6d4a15585/osfmk/arm64/sleh.c#L909) in XNU that would log and restore every trapped BBs.
+I was considering an alternative approach If everything had failed, the well known method of replacing each BB of a target KEXT with a [breakpoint](https://developer.arm.com/documentation/102120/0101/Debug-exceptions) or an illegal instruction, then boot a `Boot Kext Collection` with modified [EL1 exception handler](https://github.com/apple-oss-distributions/xnu/blob/8d741a5de7ff4191bf97d57b9f54c2f6d4a15585/osfmk/arm64/sleh.c#L909) in XNU that would log and restore every trapped BBs.
 
 
 [MacRootKit](https://github.com/YungRaj/MacRootKit) is also another (very good) promising way, it's trying to boot XNU with `hypervisor.framework`, and with it's own [hypervisor](https://gist.github.com/imbushuo/51b09e61ecd7b7ac063853ad65cedf34) it can have full control over the system. it's still a work in progress, to be able to boot XNU.
