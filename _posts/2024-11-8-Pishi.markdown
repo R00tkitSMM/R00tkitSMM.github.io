@@ -522,7 +522,7 @@ furthermore it's discussed in [ColLAFL](https://wcventure.github.io/FuzzingPaper
     are different. For example, the edge B1->C1 only exists in path P1.
 </p>
 </div>
-before we continue I have to say that what is happening under the hook for libFuzzer is way more complicated than this
+before we continue I have to say that what is happening under the hood for libFuzzer is way more complicated than this
 you can read about it on [details beneath fsanitizefuzzer](https://cyruscyliu.github.io/posts/2021-11-02-libFuzzer-cov-control/#details-beneath-fsanitizefuzzer) blog post.
 
 I'd like to briefly discuss [compare shattering](https://github.com/googleprojectzero/CompareCoverage)(comparison unrolling) or sub-instruction profiling, which is associated with `Data flow coverage`.
