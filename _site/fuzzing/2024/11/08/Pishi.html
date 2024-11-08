@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Pishi: Coverage guided macOS KEXT fuzzing. | My interesting researches</title>
+<meta name="generator" content="Jekyll v3.9.5" />
+<meta property="og:title" content="Pishi: Coverage guided macOS KEXT fuzzing." />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="This blog post is the result of some weekend research, where I delved into Pishi, a static macOS kernel binary rewriting tool. During the weekdays, I focus on Linux kernel security at my job and would rather not investigate the Windows kernel again, which leaves macOS/iOS as the only remaining option." />
+<meta property="og:description" content="This blog post is the result of some weekend research, where I delved into Pishi, a static macOS kernel binary rewriting tool. During the weekdays, I focus on Linux kernel security at my job and would rather not investigate the Windows kernel again, which leaves macOS/iOS as the only remaining option." />
+<link rel="canonical" href="http://0.0.0.0:4000/fuzzing/2024/11/08/Pishi.html" />
+<meta property="og:url" content="http://0.0.0.0:4000/fuzzing/2024/11/08/Pishi.html" />
+<meta property="og:site_name" content="My interesting researches" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-11-08T09:01:01+09:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Pishi: Coverage guided macOS KEXT fuzzing." />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-11-08T09:01:01+09:00","datePublished":"2024-11-08T09:01:01+09:00","description":"This blog post is the result of some weekend research, where I delved into Pishi, a static macOS kernel binary rewriting tool. During the weekdays, I focus on Linux kernel security at my job and would rather not investigate the Windows kernel again, which leaves macOS/iOS as the only remaining option.","headline":"Pishi: Coverage guided macOS KEXT fuzzing.","mainEntityOfPage":{"@type":"WebPage","@id":"http://0.0.0.0:4000/fuzzing/2024/11/08/Pishi.html"},"url":"http://0.0.0.0:4000/fuzzing/2024/11/08/Pishi.html"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://0.0.0.0:4000/feed.xml" title="My interesting researches" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">My interesting researches</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/about/">About</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Pishi: Coverage guided macOS KEXT fuzzing.</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2024-11-08T09:01:01+09:00" itemprop="datePublished">Nov 8, 2024
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <p>This blog post is the result of some weekend research, where I delved into Pishi, a static macOS kernel binary rewriting tool.
+During the weekdays, I focus on Linux kernel security at my job and would rather not investigate the Windows kernel again, which leaves macOS/iOS as the only remaining option.</p>
+
+<p>In this blog post I will try to explain everything as clearly as possible so that even those who are not familiar with fuzzing can enjoy and understand it. I’ll break down the concepts, provide relatable examples, and resources, My goal is to make fuzzing approachable and interesting.
+before getting started I also would like to thank <a href="https://x.com/ifsecure">Ivan Fratric</a>, for his valuable feedbacks.</p>
+
+<h4 id="what-is-pishi">What is Pishi?</h4>
+
+<p>It’s a static binary rewriting tool designed to instrument basic blocks of XNU kernel and macOS KEXTs.
+for XNU kernel, Pishi allows you to instrument at a function, file, or folder level. For example, you can instrument everything in the <code class="language-plaintext highlighter-rouge">/bsd/net/</code> directory or focus specifically on <code class="language-plaintext highlighter-rouge">content_filter.c</code> or just one specific function in the XNU source code, e.g <code class="language-plaintext highlighter-rouge">vnode_getfromfd</code>, to instrument only specific functions to guide the fuzzer towards the vulnerability more <a href="https://www.srlabs.de/blog-post/advanced-fuzzing-unmasks-elusive-vulnerabilities">efficiently</a>.</p>
+
+<h4 id="the-inspiration-behind-pishi">The Inspiration Behind Pishi</h4>
+
+<p>The idea for implementing this project came to my mind, while I was attempting to fuzz <a href="https://r00tkitsmm.github.io/fuzzing/2024/03/29/iOSImageIO.html">ImageIO</a> and ended up finding 9 vulnerabilities.
+ImageIO is an image parsing framework by Apple, Among many supported file formats by it, there is one <code class="language-plaintext highlighter-rouge">Image Container</code>, specifically HEIF.</p>
+
+<p>Wikipedia describes High Efficiency Image File Format (HEIF) as <code class="language-plaintext highlighter-rouge">a digital container for storing individual digital images and image sequences.
+HEIF can store images encoded with multiple coding formats.</code>.</p>
+
+<p>HEIF container specification describes various encodings that can be stored inside it, e.g. <code class="language-plaintext highlighter-rouge">H.264</code>, <code class="language-plaintext highlighter-rouge">H.265</code>, <code class="language-plaintext highlighter-rouge">AV1</code>.
+So where does this decoding(of <code class="language-plaintext highlighter-rouge">H.264</code>, <code class="language-plaintext highlighter-rouge">H.265</code>,…) happen? some parts of it inside <code class="language-plaintext highlighter-rouge">VTDecoderXPCService.xpc</code> a separate <a href="https://phrack.org/issues/70/8.html">decoding</a> XPC process, which talks over IOKit with <a href="https://r00tkitsmm.github.io/fuzzing/2024/05/14/anotherappleavd.html">AppleAVD</a>, a closed-source KEXT, to <a href="https://github.com/eiln/avd">do</a> the main part of the job in a <a href="https://youtu.be/H5oz1U03U1Q?t=1317">coprocessor</a> over <a href="https://googleprojectzero.blogspot.com/2022/06/curious-case-carrier-app.html">RPC</a>.</p>
+
+<p><img src="/assets/pishi/avd.png" width="300" style="display: block; margin: 0 auto" /></p>
+
+<p>There are some efforts to fuzz <code class="language-plaintext highlighter-rouge">AppleAVD</code>:</p>
+
+<ol>
+  <li><a href="https://2022.hexacon.fr/conference/speakers/#cinema_time">Cinema time.</a></li>
+  <li><a href="https://project-zero.issues.chromium.org/issues?q=AppleAVD">Project Zero.</a></li>
+  <li><a href="https://wrv.github.io/h26forge.pdf">h26forge.</a></li>
+</ol>
+
+<p>I don’t know how <a href="https://x.com/natashenka">Natalie</a> fuzzed AppleAVD.
+and the way <code class="language-plaintext highlighter-rouge">Cinema time</code> speakers fuzzed AppleAVD was not what I wanted to do. The h26forge paper was also great, but it wasn’t focused on AppleAVD</p>
+
+<p>My initial fuzzer used a basic buffer bit-flipping technique at the latest user-kernel communication point by interposing on <code class="language-plaintext highlighter-rouge">IOConnectCallMethod</code>. I used the <code class="language-plaintext highlighter-rouge">sVTRunVideoDecodersInProcess</code> flag (thanks to <a href="https://github.com/googleprojectzero/Jackalope/tree/main/examples/VideoToolbox">Ivan</a>), to ensure that our harness communicates directly with the kernel rather than indirectly through <code class="language-plaintext highlighter-rouge">VTDecoderXPCService.xpc</code>.<br />
+But this simple approach couldn’t lead us anywhere deep into AppleAVD. I needed a more sophisticated, feedback-driven fuzzer.</p>
+
+<h4 id="coverage-guided-kernel-fuzzing-on-apple-silicon">Coverage-Guided Kernel Fuzzing on Apple Silicon</h4>
+<p>I was thinking of all available options to have a Coverage guided binary only KEXT fuzzer on Apple Silicon.</p>
+
+<p>The first option for fuzzing open-source libraries is to use <a href="https://clang.llvm.org/docs/SanitizerCoverage.html">SanitizerCoverage</a>. Even though it’s possible to build XNU with <a href="https://github.com/google/syzkaller/blob/master/docs/darwin/README.md">KSANCOV</a> or porting XNU to user mode and fuzzing it there with libFuzzer, similar to <a href="https://googleprojectzero.blogspot.com/2021/04/designing-sockfuzzer-network-syscall.html">SockFuzzer</a>, but our target is closed source.</p>
+
+<h4 id="how-can-we-instrument-closed-source-targets">How can we instrument closed source targets?</h4>
+
+<p><strong>Hardware Assisted</strong></p>
+
+<p>hardware-assisted instrumentation is a CPU-level, fast and efficient way of tracing all the instructions executed by a process.
+<a href="https://www.youtube.com/watch?v=gZ808d7rQYU">kAFL</a> uses Intel Processor Trace feature to collect Linux kernel coverage and beauty of having CPU level instrumentation is that it’s independent of <a href="https://github.com/intelpt/WindowsIntelPT">OS</a> and <a href="https://github.com/intelpt/winafl-intelpt">CPU exceution modes</a> (i.e, Kernel or User), researchers also have already <a href="https://research.checkpoint.com/2020/bugs-on-the-windshield-fuzzing-the-windows-kernel/">shown</a> its effectiveness.</p>
+
+<p>Apple silicon is ARM based and AArch64’s equivalent of <code class="language-plaintext highlighter-rouge">Intel PT</code> is CoreSight, <a href="https://www.youtube.com/watch?v=e7eKzCjKhq4">CoreSight</a> is a set of hardware features designed to enable system debugging, profiling, and tracing.
+AFL++ has CoreSight mode which is impelemnted by <a href="https://ricercasecurity.blogspot.com/2021/11/armored-coresight-towards-efficient.html">ARMored</a> that enables binary-only fuzzing on ARM64 Linux using CoreSight.
+You can read and watch more about CoreSight architecture and Hardware Assisted Tracing <a href="https://developer.arm.com/documentation/ihi0029/latest/">here</a> and <a href="https://www.youtube.com/watch?v=Gm2ZXIB18PQ">here</a>.</p>
+
+<p>Three important components of CoreSight for our goal are the <code class="language-plaintext highlighter-rouge">ETM</code> (Embedded Trace Macrocell), <code class="language-plaintext highlighter-rouge">ETR</code> (Embedded Trace Router) and  <code class="language-plaintext highlighter-rouge">PTF</code> (Program Flow Trace).</p>
+
+<p>After scrolling into <a href="https://github.com/apple/darwin-xnu/blob/main/osfmk/arm64/proc_reg.h#L1732">XNU source code</a> it turned out ETM, ETR and PTF are not <a href="https://www.kernel.org/doc/Documentation/devicetree/bindings/arm/coresight.txt">documented</a> in the kernel.
+<img src="/assets/pishi/1.png" width="300" /></p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/*
+* ARMv8 coresight registers are optional. If the device tree did not
+* provide either cpu_regmap_paddr or coresight_regs, assume that
+* coresight registers are not supported.
+*/
+</code></pre></div></div>
+
+<p>After all just because <a href="https://en.wikipedia.org/wiki/Memory-mapped_I/O_and_port-mapped_I/O">MMIO</a> (memory-mapped I/O) <a href="https://en.wikipedia.org/wiki/Device_register">registers</a> of these components aren’t documented in the XNU or <a href="https://en.wikipedia.org/wiki/Devicetree">DeviceTree</a> doesn’t mean the SoC doesn’t have these components.<br />
+In <a href="https://securelist.com/operation-triangulation-the-last-hardware-mystery/111669/">Operation Triangulation</a>, attackers used MMIOs to bypass hardware-based kernel memory protection, which did not belong to any MMIO ranges defined in the device tree. therefore we need to reverse engineer the SoC.
+I strongly recommend reading Brandon Azad’s <a href="https://googleprojectzero.blogspot.com/2019/10/ktrw-journey-to-build-debuggable-iphone.html">KTRW: The journey to build a debuggable iPhone</a> blog post about his discovery of a proprietary CoreSight’s DBGWRAP register and how he mapped and experimented with it to determine if it’s implemented and accessible on production hardware. I needed to take a similar approach since it’s almost the same mission, While the bootstrapping problem wasn’t an issue(you can boot a custome kernel in Apple silicon), I didn’t have enough time for it. I still provide some additional excellent resources for exploring SoCs, you may find another <a href="https://blog.siguza.net/KTRR/">KTRR</a> or <a href="https://www.df-f.com/blog/ios-17round2">SPTM</a> bypass:</p>
+
+<ol>
+  <li><a href="https://i.blackhat.com/USA21/Wednesday-Handouts/us-21-Reverse-Engineering-The-M1.pdf">Reverse Engineering The M1</a> and other Corellium’s stuff.</li>
+  <li><a href="https://www.youtube.com/watch?v=d5s9fYfvzmY&amp;t=8838s">m1n1</a> and <a href="https://social.treehouse.systems/@marcan/111655847458820583">many more</a> videos by Asahi Lina/hector martin.</li>
+  <li><a href="https://www.youtube.com/watch?v=RByIu2zjjVg">Reverse Engineering PAC on Apple M1</a></li>
+</ol>
+
+<p><strong>Software Based</strong></p>
+
+<p>There are some other options like using debuggers and software breakpoints to get code coverage:</p>
+<ol>
+  <li><a href="https://blog.talosintelligence.com/talos-releases-new-macos-fuzzer/">Talos releases new macOS open-source fuzzer</a></li>
+  <li><a href="https://doar-e.github.io/blog/2021/07/15/building-a-new-snapshot-fuzzer-fuzzing-ida/">WTF Snapshot fuzzing of macOS targets</a></li>
+  <li><a href="https://github.com/googleprojectzero/p0tools/tree/master/TrapFuzz">TrapFuzz</a></li>
+  <li><a href="https://h0mbre.github.io/Fuzzing-Like-A-Caveman-5/">Fuzzing Like A Caveman 5: A Code Coverage Tour for Cavepeople</a></li>
+</ol>
+
+<p>But <code class="language-plaintext highlighter-rouge">KDK_ReadMe.rtfd/TXT.rtf</code> file of the <a href="https://developer.apple.com/documentation/apple-silicon/debugging-a-custom-kernel-extension">KDK</a> states that Apple Silicon does not support proper debugging:<br />
+<code class="language-plaintext highlighter-rouge">Note: Apple silicon doesn’t support active kernel debugging. You may inspect the current state of the kernel when it is halted due to a panic or NMI. However, you cannot set breakpoints, continue code execution, step into code, step over code, or step out of the current instruction.</code></p>
+
+<p>I haven’t looked into whether virtualization solutions like VMware, UTM, or Parallels Desktop support debugging and breakpoints on Apple Silicon.</p>
+
+<p>I could also write a user mode <a href="https://en.wikipedia.org/wiki/Mach-O">Mach-O</a> loader to load a KEXT in user mode and fuzz it like any other dylib, but it wasn’t an interesting option for me. I thought it may not be a generic way, 
+and it’s not an easy to implement. 
+<a href="https://github.com/pwn0rz/fairplay_research/tree/master">fairplay_research project</a> has also implemented a user mode KEXT loader.<br />
+loading kernel modules into user mode is not a new idea, it’s out there for decades e.g. <a href="https://github.com/pgiri/ndiswrapper">ndiswrapper</a>.</p>
+
+<p>Another common method was just extracting part of KEXT code (an IDA-Pro decompiled pseudo code) to user mode, but this is not a clean and generic way to fuzz KEXTs.</p>
+
+<p><a href="https://2022.hexacon.fr/conference/speakers/#cinema_time">Cinema time!</a> on hexacon2022 has gone this way.</p>
+
+<p>let’s review our options again, all software based binary-only Instrumentation methods are categorized into:</p>
+<ol>
+  <li>Dynamic Instrumentation</li>
+  <li>Static Instrumentation</li>
+</ol>
+
+<p><em>Dynamic instrumentation</em> inserts the code for generating feedback into the target program at run time. we discussed above that we don’t have kernel debugger in Apple silicon so this option is off the table.</p>
+
+<p><em>Static instrumentation</em> involes statically rewriting and modifying target binaries.<br />
+from the all above methods I decided to <a href="https://web.archive.org/web/20201111170534/https://repret.wordpress.com/2017/04/27/kfuzz-a-fuzzer-story/">investigate binary rewriting.</a> as it’s more promising than the others.<br />
+I studied some great papers about binary rewriting; they are great but they are mostly about user mode binaries. And Linux ELF files. and they have fundamental limitations when applied to macOS KEXTs.</p>
+<ol>
+  <li>Retrowrite: a static binary rewriter for x64 and AArch64</li>
+  <li>StochFuzz: A New Solution for Binary-only Fuzzing</li>
+  <li>ArmWrestling: Efficient binary rewriting for AArch64 (Contains IL lifting)</li>
+  <li>ARMore: Pushing Love Back Into Binaries</li>
+</ol>
+
+<p>I also read <a href="https://conference.hitb.org/hitbsecconf2019ams/materials/D2T2%20-%20PanicXNU%203.0%20-%20Juwei%20Lin%20&amp;%20Junzhi%20Lu.pdf">another paper</a> on binary rewriting KEXTs in older Intel-based macOS just as I was finishing this blog post.</p>
+<h4 id="kextfuzz">KextFuzz</h4>
+<p>After more googling I saw <a href="https://www.usenix.org/conference/usenixsecurity23/presentation/yin">KextFuzz</a>: Fuzzing macOS Kernel extensions on Apple Silicon via Exploiting mitigations<br />
+An interesting article about fuzzing macOS kernel with binary rewriting.<br />
+KEXT utilizes the fact that</p>
+<ol>
+  <li>Some instruction in KEXTs can be nopped away without affecting the intended behavior.</li>
+  <li>It’s possible to hook import table in KEXTs by replacing the name of a function in the import table with a function of another KEXT, any call to the original function in the KEXT at runtime will redirect to the second function. It’s just another <a href="https://www.ired.team/offensive-security/code-injection-process-injection/import-adress-table-iat-hooking">Import Address Table (IAT) Hooking</a> method but in Apple’s world.</li>
+</ol>
+
+<p><strong>Nopping away some instructions:</strong></p>
+
+<p>Kextfuzz instrument a target KEXT by nopping away some PAC instructions and replaces them with a call to an <a href="https://github.com/qyang-nj/llios/blob/main/exported_symbol/README.md">exported function</a> in its KEXT.
+PAC or pointer authentication in the Armv8.3-A architecture were introduced as a software security countermeasure for Return-Oriented Programming (ROP) attacks.
+PAC has been described in depth in the following articles:</p>
+<ol>
+  <li><a href="https://googleprojectzero.blogspot.com/2019/02/examining-pointer-authentication-on.html">Examining Pointer Authentication on the iPhone XS</a></li>
+  <li><a href="https://sipearl.com/wp-content/uploads/2023/10/SiPearl-White_Paper_Control_Flow_Integrity-on-Arm64.pdf">Control Flow Integrity Anti-Malware active protection on Arm64 Systems</a></li>
+  <li><a href="https://www.usenix.org/system/files/sec19fall_liljestrand_prepub.pdf">PAC it up</a></li>
+</ol>
+
+<p>Now as it’s described by <a href="https://www.qualcomm.com/content/dam/qcomm-martech/dm-assets/documents/pointer-auth-v7.pdf">qualcomm</a></p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>There are two main operations needed for Pointer Authentication:
+computing and adding a PAC, and verifying a PAC and restoring the pointer value.
+In addition to the PAC and AUT instructions,
+there are instructions for stripping the PAC (XPAC*),
+and for computing a 32-bit authentication code from two 64-bit inputs (PACGA).
+</code></pre></div></div>
+
+<p>KextFuzz replaces XPACD instruction, this instructions remove a pointer’s PAC and restore the original value without performing verification.</p>
+
+<p>When does the compiler emits these instructions?<br />
+Compilers inserts PAC instructions around pointer access operations. KEXTs on Apple Silicon are compiled with PAC, allowing them to protect various types of pointers, such as C++ V-Tables.<br />
+KEXTs have to inherit and implement IOKit classes and IOKit is developed in C++.<br />
+whenever codes call into a virtual function, compiler generates XPACD instruction to protect the V-Table access.<br />
+Removing this instruction or replacing it with nop will not change the expected functionality of the code.</p>
+
+<p>I have described what happens around XPACD instructions whenever calling a virtual function:</p>
+
+<figure class="highlight"><pre><code class="language-nasm" data-lang="nasm"><span class="nf">mov</span> <span class="nv">x17</span><span class="p">,</span> <span class="nv">x8</span> <span class="c1">; V_table </span>
+<span class="nf">movk</span> <span class="nv">x17</span><span class="p">,</span> <span class="err">#</span><span class="mh">0xcbeb</span><span class="p">,</span> <span class="nv">Isl</span> <span class="err">#</span><span class="mi">48</span>
+<span class="nf">autda</span> <span class="nv">x16</span><span class="p">,</span> <span class="nv">x17</span> <span class="c1">; authentica V_table into x16</span>
+<span class="c1">; If the authentication passes, the upper bits of the address are restored to enable subsequent use of the address.</span>
+<span class="c1">; If the authentication fails, the upper bits are corrupted and any subsequent use of the address results in a Translation fault.</span>
+<span class="nf">mov</span> <span class="nv">x17</span><span class="p">,</span> <span class="nv">x16</span> <span class="c1">; move x16 into x17</span>
+<span class="nf">xpacd</span> <span class="nv">x17</span> <span class="c1">; strip key from x17</span>
+<span class="nf">cmp</span> <span class="nv">x16</span><span class="p">,</span> <span class="nv">x17</span> <span class="c1">; compare x16 and x17 to see if they are equal. equal = means autda was successful</span>
+<span class="nf">b.</span> <span class="nv">eg</span> <span class="mh">0x9758</span> <span class="o">&lt;</span><span class="nv">_ZN20I0SurfaceSharedEvent25signal_completed_internalEyb</span><span class="o">+</span><span class="mh">0x88</span><span class="o">&gt;</span>
+<span class="nf">brk</span> <span class="err">#</span><span class="mh">0x472</span></code></pre></figure>
+
+<p><img src="/assets/pishi/8.png" width="500" style="display: block; margin: 0 auto" /></p>
+
+<p>KextFuzz just assumes <code class="language-plaintext highlighter-rouge">autda</code> instruction is always successful, therefore it can easily nop away <code class="language-plaintext highlighter-rouge">xpacd</code> or in this case replace it with a hooked function call.
+KextFuzz also instruments <code class="language-plaintext highlighter-rouge">PACIBSP</code> instruction, which is used in prologue of functions to protect against stack overflow.
+<code class="language-plaintext highlighter-rouge">PACIBSP</code> means function level instrumentation.</p>
+
+<figure class="highlight"><pre><code class="language-nasm" data-lang="nasm"><span class="nf">PACIASP</span>
+<span class="nf">SUB</span> <span class="nb">sp</span><span class="p">,</span> <span class="nb">sp</span><span class="p">,</span> <span class="err">#</span><span class="mh">0x40</span>
+<span class="nf">STP</span> <span class="nv">x29</span><span class="p">,</span> <span class="nv">x30</span><span class="p">,</span> <span class="p">[</span><span class="nb">sp</span><span class="p">,</span><span class="err">#</span><span class="mh">0x30</span><span class="p">]</span>
+<span class="nf">ADD</span> <span class="nv">x29</span><span class="p">,</span> <span class="nb">sp</span><span class="p">,</span> <span class="err">#</span><span class="mh">0x30</span>
+<span class="nf">....</span>
+<span class="nf">....</span>
+<span class="nf">LDP</span> <span class="nv">x29</span><span class="p">,</span><span class="nv">x30</span><span class="p">,[</span><span class="nb">sp</span><span class="p">,</span><span class="err">#</span><span class="mh">0x30</span><span class="p">]</span>
+<span class="nf">ADD</span> <span class="nb">sp</span><span class="p">,</span><span class="nb">sp</span><span class="p">,</span><span class="err">#</span><span class="mh">0x40</span>
+<span class="nf">AUTIASP</span>
+<span class="nf">RET</span></code></pre></figure>
+
+<p><strong>Hooking imported functions:</strong></p>
+
+<p>If you just replace name of a function in string table of a Mach-O file with name of another function, 
+then at runtime the replaced funcion will be called instead of orginal function.
+following image depicts this idea, I described before.</p>
+
+<p><img src="/assets/pishi/7.png" width="500" style="display: block; margin: 0 auto" /></p>
+
+<p>With the help of these two capabilities they can instrument some basic blocks in any KEXT
+just by replacing <code class="language-plaintext highlighter-rouge">XPACD</code> with a call instruction to the hooked function.
+as it’s shown in a image by original author.</p>
+
+<p><img src="/assets/pishi/9.png" width="500" style="display: block; margin: 0 auto" /></p>
+
+<p>I have found a major issue with this method,
+Opposite to what <a href="https://www.usenix.org/system/files/usenixsecurity23-yin.pdf">KextFuzz</a> claims, This is not a basic block granular instrumentation.</p>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell">KextFuzz can instrument KEXT at basic block granularity
+roughly because the KEXT are developed <span class="k">in </span>C++ and widely
+use PA instructions to protect <span class="k">return </span>addresses and indirect
+calls. In addition, the PA instructions distribute at different
+points of the program. By sampling the signal of these instrumented points, the fuzzer can approximately know the depth
+and breadth of the current triggered code.</code></pre></figure>
+
+<p>simple grep in IOSurface KEXT just shows we have just 198 of xpacd instruction in it.</p>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell">objdump <span class="nt">--disassemble</span> IOSurface | <span class="nb">grep</span> <span class="nt">-i</span> xpacd | <span class="nb">wc</span> <span class="nt">-l</span>
+198</code></pre></figure>
+
+<p>Instrumenting in functions granularity and instrumenting XPACD instructions together does not cover enough basic blocks and is not informative feedback to fuzz complex codes.
+Only certain parts of KEXTs interact with the vtables, at least in our target AppleAVD, it will decode and parse buffers.
+for example kextFuzz can not instrument this function:</p>
+
+<figure class="highlight"><pre><code class="language-shell" data-lang="shell">void fuzz_me<span class="o">(</span>char<span class="k">*</span> k_buffer<span class="o">)</span>
+<span class="o">{</span>
+
+    <span class="k">if</span> <span class="o">(</span> strlen<span class="o">(</span>k_buffer<span class="o">)</span> <span class="o">&gt;</span> 9 <span class="o">)</span>
+        <span class="k">if</span><span class="o">(</span> k_buffer[0] <span class="o">==</span><span class="s1">'M'</span> <span class="o">)</span>
+            <span class="k">if</span><span class="o">(</span> k_buffer[1] <span class="o">==</span><span class="s1">'E'</span> <span class="o">)</span>
+                <span class="k">if</span><span class="o">(</span> k_buffer[2] <span class="o">==</span><span class="s1">'Y'</span> <span class="o">)</span>
+                    <span class="k">if</span><span class="o">(</span> k_buffer[3] <span class="o">==</span><span class="s1">'S'</span> <span class="o">)</span>
+                        <span class="k">if</span><span class="o">(</span> k_buffer[4] <span class="o">==</span><span class="s1">'A'</span> <span class="o">)</span>
+                            <span class="k">if</span><span class="o">(</span> k_buffer[5] <span class="o">==</span><span class="s1">'M'</span> <span class="o">)</span>
+                                <span class="k">if</span><span class="o">(</span> k_buffer[6] <span class="o">==</span><span class="s1">'6'</span> <span class="o">)</span>
+                                    <span class="k">if</span><span class="o">(</span> k_buffer[7] <span class="o">==</span><span class="s1">'7'</span> <span class="o">)</span>
+                                        <span class="k">if</span><span class="o">(</span> k_buffer[8] <span class="o">==</span><span class="s1">'8'</span> <span class="o">)</span>
+                                            <span class="k">if</span><span class="o">(</span> k_buffer[9] <span class="o">==</span><span class="s1">'9'</span> <span class="o">)</span> <span class="o">{</span>
+                                                <span class="nb">printf</span><span class="o">(</span><span class="s2">"boom!</span><span class="se">\n</span><span class="s2">"</span><span class="o">)</span><span class="p">;</span>
+                                                int<span class="k">*</span> p <span class="o">=</span> <span class="o">(</span>int<span class="k">*</span><span class="o">)</span>0x41414141<span class="p">;</span>
+                                                <span class="k">*</span>p <span class="o">=</span> 0x42424242<span class="p">;</span>
+                    <span class="o">}</span>
+<span class="o">}</span></code></pre></figure>
+
+<p>We need a better coverage, how to instrument every BB?</p>
+
+<p>Let’s revisit what primitives do we have. 
+We can hook an imported function in the target KEXT(e.g AppleAVD) with a exported function from our KEXT, 
+but we don’t know where does our KEXT will be loaded. therefore we don’t know the address of any trampoline at runtime.</p>
+
+<p>At the same time I know something is wrong, we can’t just replace any random <code class="language-plaintext highlighter-rouge">xpacd</code> in target KEXT with a call to an imported function. as I explain in next lines.</p>
+
+<p>Calling imported functions is done through <code class="language-plaintext highlighter-rouge">__auth_stubs</code> and this stub will <a href="https://en.wikipedia.org/wiki/Clobbering">clobber</a> <code class="language-plaintext highlighter-rouge">X16</code>, <code class="language-plaintext highlighter-rouge">X17</code> and <code class="language-plaintext highlighter-rouge">LR</code> registers.
+A clobbered register is a register that gets altered or “trashed” by inline assembly code.
+When using inline assembly, we need to tell the compiler which registers are changed by using <a href="https://gcc.gnu.org/onlinedocs/gcc/extensions-to-the-c-language-family/how-to-use-inline-assembly-language-in-c-code.html#clobbers-and-scratch-registers">clobber arguments</a>. This helps the compiler avoid <a href="https://en.wikipedia.org/wiki/Register_allocation">allocating</a> those modified registers.</p>
+
+<figure class="highlight"><pre><code class="language-nasm" data-lang="nasm"><span class="nl">__auth_stubs:</span>
+  <span class="nf">adrp</span>	<span class="nv">x17</span><span class="p">,</span> <span class="mh">0x3c000</span> <span class="o">&lt;</span><span class="nv">_zalloc_flags</span><span class="o">+</span><span class="mh">0x3c000</span><span class="o">&gt;</span>
+  <span class="nf">add</span>	<span class="nv">x17</span><span class="p">,</span> <span class="nv">x17</span><span class="p">,</span> <span class="err">#</span><span class="mh">0x0</span>
+  <span class="nf">ldr</span>	<span class="nv">x16</span><span class="p">,</span> <span class="p">[</span><span class="nv">x17</span><span class="p">]</span>
+  <span class="nf">braa</span>	<span class="nv">x16</span><span class="p">,</span> <span class="nv">x17</span></code></pre></figure>
+
+<p>If we replace <code class="language-plaintext highlighter-rouge">xpacd</code>, subsequently we can’t just use call-clobbered registers later in <code class="language-plaintext highlighter-rouge">ldar	x9, [x16]</code>. using this regsiter after <code class="language-plaintext highlighter-rouge">xpacd</code> is a common pattern. we need to preserve these registers before calling into the exported function. Compilers know about function calls, and they emit proper assembly with respect to callee-saved and caller-saved registers. But why is KextFuzz’s instrumentation working? Keep on reading we will answer it.</p>
+
+<figure class="highlight"><pre><code class="language-nasm" data-lang="nasm"><span class="nf">autda</span>	<span class="nv">x16</span><span class="p">,</span> <span class="nv">x17</span>
+<span class="nf">mov</span>	<span class="nv">x17</span><span class="p">,</span> <span class="nv">x16</span>
+<span class="nf">xpacd</span>	<span class="nv">x17</span>      <span class="c1">; &lt;&lt;&lt;&lt;----- instrumented and replaced by a call</span>
+<span class="nf">cmp</span>	<span class="nv">x16</span><span class="p">,</span> <span class="nv">x17</span>
+<span class="nf">b.eq</span>	<span class="mh">0x9720</span>
+<span class="nf">brk</span>	<span class="err">#</span><span class="mh">0xc472</span>
+<span class="nf">ldar</span>	<span class="nv">x9</span><span class="p">,</span> <span class="p">[</span><span class="nv">x16</span><span class="p">]</span> <span class="c1">;&lt;&lt;&lt;&lt;----- dereferencing x16.</span></code></pre></figure>
+
+<p>Instrumenting any instruction needs at least to patch 5 instructions to store and restore what is going to be modified by <code class="language-plaintext highlighter-rouge">__auth_stubs</code>. we also need to put the original patched instructions somewhere. 
+the instrumented instructions should be replaced by:</p>
+
+<figure class="highlight"><pre><code class="language-nasm" data-lang="nasm"><span class="nf">stp</span> <span class="nv">x16</span><span class="p">,</span> <span class="nv">x17</span><span class="p">,</span> <span class="p">[</span><span class="nb">sp</span><span class="p">,</span> <span class="o">-</span><span class="mi">16</span><span class="p">]</span><span class="err">!</span> <span class="err">#</span> <span class="nv">Push</span> <span class="nv">x16</span> <span class="nv">and</span> <span class="nv">x17</span> <span class="nv">onto</span> <span class="nv">the</span> <span class="nv">stack</span>
+<span class="nf">stp</span> <span class="nv">lr</span><span class="p">,</span> <span class="nv">lr</span><span class="p">,</span> <span class="p">[</span><span class="nb">sp</span><span class="p">,</span> <span class="o">-</span><span class="mi">16</span><span class="p">]</span><span class="err">!</span> <span class="err">#</span> <span class="nv">Push</span> <span class="nv">the</span> <span class="nv">Link</span> <span class="nv">Register</span> <span class="p">(</span><span class="nv">LR</span><span class="p">)</span> <span class="nv">onto</span> <span class="nv">the</span> <span class="nv">stack</span>
+<span class="nf">bl</span> <span class="nv">COV_</span> <span class="err">#</span> <span class="nv">Call</span> <span class="nv">the</span> <span class="nv">COV_</span> <span class="nv">function</span>
+<span class="nf">ldp</span> <span class="nv">lr</span><span class="p">,</span> <span class="nv">lr</span><span class="p">,</span> <span class="p">[</span><span class="nb">sp</span><span class="p">],</span> <span class="mi">16</span> <span class="err">#</span> <span class="nv">Pop</span> <span class="nv">the</span> <span class="nv">Link</span> <span class="nv">Register</span> <span class="p">(</span><span class="nv">LR</span><span class="p">)</span> <span class="nv">from</span> <span class="nv">the</span> <span class="nv">stack</span>
+<span class="nf">ldp</span> <span class="nv">x16</span><span class="p">,</span> <span class="nv">x17</span><span class="p">,</span> <span class="p">[</span><span class="nb">sp</span><span class="p">],</span> <span class="mi">16</span> <span class="err">#</span> <span class="nv">Pop</span> <span class="nv">x16</span> <span class="nv">and</span> <span class="nv">x17</span> <span class="nv">from</span> <span class="nv">the</span> <span class="nv">stack</span></code></pre></figure>
+
+<p>COV_ will collect coverage, execute the original instruction and return</p>
+
+<figure class="highlight"><pre><code class="language-nasm" data-lang="nasm"><span class="nl">COV_:</span> 
+  <span class="nf">nop</span> <span class="err">#</span> <span class="nv">executing</span> <span class="nv">original</span> <span class="nv">instructions</span> <span class="nv">in</span> <span class="nv">here</span>
+  <span class="nf">ret</span></code></pre></figure>
+
+<p>I thought the main obstacles in here is that I don’t where my KEXT will be loaded later at runtime, therefore I can’t just replace an instruction inside random BB with a jump/call to my coverage function. I can just call into an exported function. 
+I was thinking about modifying target KEXT by injecting some trampoline inside it then from there I could save and restore CPU context and call into my exported function.
+for example modifying <code class="language-plaintext highlighter-rouge">__auth_stubs</code> or adding a new section (e.g., __TEXT) to Mach-O file of the KEXT. so again every BB would jump into the injected trampoline and this trampoline would save and restore needed registers, then call into a function that collects coverages. with this way I just needed to patch one instruction in each BB.
+but after playing with Mach-O file of a KEXT, it turn out kmutil is very restrict about format of Mach-O,
+and it just ignored my new section and didn’t allow patching other places.</p>
+
+<p><a href="https://github.com/apple-oss-distributions/kext_tools">kmutil</a> is open source and it heavily uses dyld and IOKitUser.
+<img src="/assets/pishi/13.png" width="500" style="display: block; margin: 0 auto" /></p>
+
+<p>I will explain what is kmutil in the next section.</p>
+
+<h4 id="birth-of-pishi">Birth of Pishi</h4>
+
+<p>I have to provide an overview of loading steps of kernel modules on MacBooks.<br />
+In macOS 11 or later Apple <a href="https://eclecticlight.co/2022/04/14/the-kernel-and-extensions-2-secure-boot/">has changed</a> its previous scheme of prelinked kernelcaches and <a href="https://apple.fandom.com/wiki/Kernel_extension">Loadable kernel module</a> or KEXTs, to three prelinked kernel collection blobs:</p>
+
+<ul>
+  <li>The ‍<code class="language-plaintext highlighter-rouge">Boot Kext Collection</code> (BKC), contains the kernel itself, and all the major system kernel extensions required for a Mac to function.</li>
+  <li>The <code class="language-plaintext highlighter-rouge">System Kext Collection</code> (SKC), This contains all the other system kernel extensions, which are loaded after booting with the BKC.</li>
+  <li>The <code class="language-plaintext highlighter-rouge">Auxiliary Kext Collection</code> (AKC), is built and managed by the service kernelmanagerd. This contains all installed third-party kernel extensions, and is loaded after the other two collection.</li>
+</ul>
+
+<p>kmutil is a tool that can <a href="https://developer.apple.com/documentation/Apple-Silicon/installing-a-custom-kernel-extension?changes=__3____7_7_1&amp;language=objc">creates</a> different types of <code class="language-plaintext highlighter-rouge">Kext Collection</code>.</p>
+
+<p>The documented method for loading third-party KEXTs involves rebuilding the auxiliary KEXT collection with an additional KEXT. and the systme will load it in the next reboot.</p>
+
+<p>But it’s also possible to embed any extra KEXT into <code class="language-plaintext highlighter-rouge">Boot Kext Collection</code> as KextFuzz was doing it.
+the KextFuzz fuzzer relies on the ability to inject additional KEXTs into the boot collection.
+They embed an instrumented KEXT along with an additional KEXT which contains the hooked function.
+<img src="/assets/pishi/6.png" width="600" style="display: block; margin: 0 auto" /></p>
+
+<p>As I explain latter, there is a important difference between these two <code class="language-plaintext highlighter-rouge">Kext Collection</code>.<br />
+Let’s see how imported functions work in a <code class="language-plaintext highlighter-rouge">Kext Collection</code> and why I was getting errors when I was modifying  <code class="language-plaintext highlighter-rouge">__auth_stubs</code> or adding sections and how KextFuzz instrumentation is working( do you remember this stub clobbers <code class="language-plaintext highlighter-rouge">X16</code> and <code class="language-plaintext highlighter-rouge">x17</code> without saving/restoring them?).<br />
+disassemblers showe that calling into an exported function in <code class="language-plaintext highlighter-rouge">Kext Collection</code> blob is just <code class="language-plaintext highlighter-rouge">BL</code> instruction to a relative address, instead of using <code class="language-plaintext highlighter-rouge">__auth_stubs</code> as a proxy.</p>
+
+<p>A call into a exported function through <code class="language-plaintext highlighter-rouge">__auth_stubs</code> in KEXT.</p>
+
+<figure class="highlight"><pre><code class="language-nasm" data-lang="nasm"><span class="nf">bl</span> <span class="nv">to_a_stub_address</span></code></pre></figure>
+
+<p>Is replaced with a call into function directly in <code class="language-plaintext highlighter-rouge">Boot Kext Collection</code>.</p>
+
+<figure class="highlight"><pre><code class="language-nasm" data-lang="nasm"><span class="nf">bl</span> <span class="nv">relative_address_of_function.</span></code></pre></figure>
+
+<p>kmutil has removed mach-o <code class="language-plaintext highlighter-rouge">__auth_stubs</code>.</p>
+
+<p><img src="/assets/pishi/15.png" width="600" style="display: block; margin: 0 auto" /></p>
+
+<p>To load a <a href="https://developer.apple.com/support/kernel-extensions/">depreciate</a> on-demand loadable KEXT, kernel had to bind and <a href="https://github.com/qyang-nj/llios/blob/main/dynamic_linking/chained_fixups.md">fix any relative address</a> at runtime.
+but for prelinked blobs, To accelerate the boot process, these steps are executed at link time when <a href="https://github.com/apple-oss-distributions/dyld/blob/65bbeed63cec73f313b1d636e63f243964725a9d/cache-builder/AppCacheBuilder.cpp#L5707">creating</a> a <code class="language-plaintext highlighter-rouge">Boot Kext Collection</code>.
+Two comments inside <a href="https://github.com/apple-oss-distributions/dyld/blob/65bbeed63cec73f313b1d636e63f243964725a9d/cache-builder/AppCacheBuilder.cpp#L5707">AppCacheBuilder</a> of dyld confirms our findings.</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="kt">void</span> <span class="n">AppCacheBuilder</span><span class="o">::</span><span class="n">buildAppCache</span><span class="p">(</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">InputDylib</span><span class="o">&gt;&amp;</span> <span class="n">dylibs</span><span class="p">)</span>
+  <span class="p">{</span> <span class="p">....</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="n">removeStubs</span><span class="p">()</span> <span class="p">)</span> <span class="p">{</span>
+          <span class="c1">// Stubs were removed, but we need to rewrite calls which would have gone through those stubs</span>
+          <span class="n">rewriteRemovedStubs</span><span class="p">();</span>
+      <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+    <span class="p">...</span>
+      <span class="p">}</span>
+      <span class="p">...</span>
+  <span class="p">}</span>
+    
+<span class="kt">void</span> <span class="n">AppCacheBuilder</span><span class="o">::</span><span class="n">rewriteRemovedStubs</span><span class="p">()</span>
+<span class="p">{</span>
+  <span class="p">...</span>
+  <span class="c1">// We need to find what the auth stubs pointed to, then rewrite all</span>
+  <span class="c1">// users of the auth stubs to jump to those locations inst</span>
+  <span class="p">...</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>But this is not the case for <code class="language-plaintext highlighter-rouge">Auxiliary Kext Collection</code>, kmutil doesn’t remove <code class="language-plaintext highlighter-rouge">_auth_stubs</code>.</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="kt">bool</span> <span class="n">AppCacheBuilder</span><span class="o">::</span><span class="n">removeStubs</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="c1">// Only eliminate stubs in the base kernel collection.  We could eliminate stubs</span>
+    <span class="c1">// in the auxKC too, for those calls resolved within the auxKC, but its not worth it right now</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="n">appCacheOptions</span><span class="p">.</span><span class="n">cacheKind</span> <span class="o">!=</span> <span class="n">Options</span><span class="o">::</span><span class="n">AppCacheKind</span><span class="o">::</span><span class="n">kernel</span> <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span> <span class="n">_options</span><span class="p">.</span><span class="n">archs</span> <span class="o">!=</span> <span class="o">&amp;</span><span class="n">dyld3</span><span class="o">::</span><span class="n">GradedArchs</span><span class="o">::</span><span class="n">arm64e</span> <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span> <span class="n">hasSancovGateSection</span><span class="p">()</span> <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Latter at runtime XNU will load <code class="language-plaintext highlighter-rouge">Auxiliary Kext Collection</code> and <a href="https://github.com/apple-oss-distributions/xnu/blob/8d741a5de7ff4191bf97d57b9f54c2f6d4a15585/osfmk/mach/dyld_kernel_fixups.h#L211">fix the relative addresses</a>.</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="n">arm_init</span> <span class="o">-&gt;</span>  <span class="n">arm_vm_init</span> <span class="o">-&gt;</span>
+  <span class="n">arm_vm_auxkc_init</span> <span class="o">-&gt;</span> <span class="n">arm_auxkc_init</span> <span class="o">-&gt;</span> 
+      <span class="n">kernel_collection_slide</span><span class="p">()</span> 
+        <span class="p">{</span>
+          <span class="cm">/*
+          * Now we have the chained fixups, walk it to apply all the rebases 
+          */</span>
+        <span class="p">}</span></code></pre></figure>
+
+<p>If the load address of KEXTs within <code class="language-plaintext highlighter-rouge">Boot Kext Collection</code> are relatives to each other, we can replace any instruction with a jump to somewhere else inside our KEXT without worrying about <code class="language-plaintext highlighter-rouge">__auth_stubs</code>.</p>
+
+<p>This is a huge primitive we can hook into any addrress we like.<br />
+<strong>consequently</strong> unlink KextFuzz, instead of instrumenting a KEXT’s Mach-O file, we instrument them later inside <code class="language-plaintext highlighter-rouge">Boot Kext Collection</code> blob.</p>
+
+<h4 id="instrumentation">Instrumentation.</h4>
+<p>At this point I know how to hook into any instruction and jump to any address inside my KEXT.
+but how to do this instrumentation reliably without corrupting current context( CPU registers, stacks,…)?
+as I told before we can’t just jump into another place, we have to make sure CPU and memory state are same before and after our call.</p>
+
+<p>This is <a href="https://www.microsoft.com/en-us/research/project/detours/">classic</a> <a href="https://www.amazon.de/-/en/Rootkits-Subverting-Windows-Kernel/dp/0321294319">and well documented</a> <a href="https://www.malwaretech.com/2015/01/inline-hooking-for-programmers-part-1.html">inline</a> <a href="https://en.wikipedia.org/wiki/Hooking">hooking</a>.<br />
+We need to have a <a href="https://kylehalladay.com/blog/2020/11/13/Hooking-By-Example.html">trampoline</a> to preserve and restore CPU registers.
+and it should be compliant with <a href="https://developer.apple.com/documentation/xcode/writing-arm64-code-for-apple-platforms">Apple silicon</a>’s <a href="https://en.wikipedia.org/wiki/Application_binary_interface">ABI</a>.<br />
+a <code class="language-plaintext highlighter-rouge">trampoline</code> is a technique used to redirect the execution flow of a function or method to a different piece of code.</p>
+
+<p><img src="/assets/pishi/35.png" width="300" style="display: block; margin: 0 auto" /></p>
+
+<p>I manged to come up with the following one.<br />
+each instrumented instruction needs to jump to an instance of following trampoline to be able to work without any problems.<br />
+Placeholder for the original instruction will be replaced by the original instruction during instrumentation.<br />
+Another key point is that <a href="https://developer.arm.com/documentation/dui0041/c/ARM-Procedure-Call-Standard/Function-entry-examples/Definitions">leaf functions</a> do not save the <a href="https://eklitzke.org/link-registers">LR on the stack</a> so we need to save and restore it in our trampoline.</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="kt">void</span> <span class="nf">instrument_trampolines</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="k">asm</span> <span class="k">volatile</span> <span class="p">(</span>
+                  <span class="s">".rept "</span> <span class="n">xstr</span><span class="p">(</span><span class="n">REPEAT_COUNT_THUNK</span><span class="p">)</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span>  <span class="c1">// Repeat the following block many times</span>
+                  <span class="s">"    STR x30, [sp, #-16]!</span><span class="se">\n</span><span class="s">"</span>            <span class="c1">// save LR. we can't restore it in pop_regs. as we have jumped here.</span>
+                  <span class="s">"    bl _push_regs</span><span class="se">\n</span><span class="s">"</span>
+                  <span class="s">"    mov x0, #0x0000</span><span class="se">\n</span><span class="s">"</span>                 <span class="c1">// placeholder targeted_kext flag.</span>
+                  <span class="s">"    mov x1, #0x4141</span><span class="se">\n</span><span class="s">"</span>                 <span class="c1">// fix the correct numner when instrumenting as arg0.</span>
+                  <span class="s">"    mov x1, #0x4141</span><span class="se">\n</span><span class="s">"</span>                 <span class="c1">// placeholder for BB address</span>
+                  <span class="s">"    mov x1, #0x4141</span><span class="se">\n</span><span class="s">"</span>
+                  <span class="s">"    mov x1, #0x4141</span><span class="se">\n</span><span class="s">"</span>
+                  <span class="s">"    bl _sanitizer_cov_trace_pc</span><span class="se">\n</span><span class="s">"</span>
+                  <span class="s">"    bl _pop_regs</span><span class="se">\n</span><span class="s">"</span>
+                  <span class="s">"    LDR x30, [sp], #16</span><span class="se">\n</span><span class="s">"</span>              <span class="c1">// restore LR</span>
+                  <span class="s">"    nop</span><span class="se">\n</span><span class="s">"</span>                             <span class="c1">// placeholder for original inst.</span>
+                  <span class="s">"    nop</span><span class="se">\n</span><span class="s">"</span>                             <span class="c1">// placeholder for jump back</span>
+                  <span class="s">".endr</span><span class="se">\n</span><span class="s">"</span>                               <span class="c1">// End of repetition</span>
+                  <span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>this instructions will do:</p>
+<ol>
+  <li>Save the Link Register (LR). because we have to call a function to save the current context/registers. This call will clobber the <code class="language-plaintext highlighter-rouge">LR</code>, and _push_regs is too large to be as part of this trampoline.</li>
+  <li>Save context/registers via <code class="language-plaintext highlighter-rouge">_push_regs</code>.</li>
+  <li>Move BB’s ID( the address of the instrumented instruction) and KEXT’s ID number as arguments of <code class="language-plaintext highlighter-rouge">_sanitizer_cov_trace_pc</code>. we will write correct number in these placeholders in instrumentation time.</li>
+  <li>Call <code class="language-plaintext highlighter-rouge">_sanitizer_cov_trace_pc</code> to collect the coverage.</li>
+  <li>Restore the registers with <code class="language-plaintext highlighter-rouge">_pop_regs</code>.</li>
+  <li>Restore (LR).</li>
+  <li>Execute original instruction. this step is the reason that each instrumentation point needs its own trampoline.</li>
+  <li>Jump back to next instruction of the patched adddress.</li>
+</ol>
+
+<p>As shown in the following image, our <code class="language-plaintext highlighter-rouge">extra KEXT</code> will include all the necessary functions, such as <code class="language-plaintext highlighter-rouge">_sanitizer_cov_trace_pc</code>, along with a large amount of trampolines.<br />
+We can use directives <code class="language-plaintext highlighter-rouge">.rept .endr</code> to sprays memory(not for <a href="https://en.wikipedia.org/wiki/Heap_spraying">exploitation</a> this time) with plenty of trampolines.
+<a href="https://developer.arm.com/documentation/100068/0608/migrating-from-armasm-to-the-armclang-integrated-assembler/migration-of-armasm-macros-to-integrated-assembler-macros#:~:text=enclosed%20between%20a%20.-,rept%20and%20.,be%20used%20within%20a%20macro.">These directives</a> allow a sequence of instructions to be assembled repeatedly.</p>
+
+<p><img src="/assets/pishi/18.png" width="600" style="display: block; margin: 0 auto" /></p>
+
+<h4 id="what-exactly-should-be-instrumented">What exactly should be instrumented?</h4>
+
+<p>Let’s repeat again that we want to have Coverage-guided fuzzing,
+Coverage-guided fuzzing is a type of feedback-aware fuzzing that employs code coverage as a metric to direct the fuzzer. It leverages this information to make informed decisions about which inputs to mutate, aiming to maximize code coverage.</p>
+
+<p>Fuzzer-centric <a href="https://en.wikipedia.org/wiki/Code_coverage">code coverage</a> metrics can be categorized into <code class="language-plaintext highlighter-rouge">Control flow</code> and <code class="language-plaintext highlighter-rouge">Data flow</code> coverages:</p>
+<ol>
+  <li>Control flow coverage:
+    <ul>
+      <li>Basic blocks coverage</li>
+      <li>Edge coverage</li>
+      <li>Paths coverage</li>
+      <li><a href="https://googleprojectzero.blogspot.com/2021/12/this-shouldnt-have-happened.html">Stack Coverage!</a></li>
+    </ul>
+  </li>
+  <li><a href="https://clang.llvm.org/docs/SanitizerCoverage.html#tracing-data-flow">Data flow coverage</a></li>
+</ol>
+
+<p>First we need to define Control Flow Graph (CFG).<br />
+<code class="language-plaintext highlighter-rouge">control-flow graph (CFG) is a representation, using graph notation, of all paths that might be traversed through a program during its execution.</code> (Wikipedia)<br />
+Basic blocks form the vertices or nodes in a <code class="language-plaintext highlighter-rouge">CFG</code>, while jumps instructions represent the Edges, accordingly, a <a href="https://en.wikipedia.org/wiki/Path_(graph_theory)">Path</a> is defined to the specific route taken through the graph.<br />
+Wikipedia definition of BB is,
+<code class="language-plaintext highlighter-rouge">In compiler construction, a basic block is a straight-line code sequence with no branches in except to the entry and no branches out except at the exit.</code>
+<img src="/assets/pishi/19.png" width="200" style="display: block; margin: 0 auto" /></p>
+<blockquote>
+
+</blockquote>
+
+<p>To identify interesting inputs, a fuzzer can analyze how many basic blocks are reached by the input. This is one of the simplest yet most effective ways to guide the fuzzer.
+but edge coverage gives much better insight into how the program runs than just block coverage.<br />
+I can not explain the importance of the edge coverage better than the <a href="https://lcamtuf.coredump.cx/afl/technical_details.txt">AFL technical paper</a>.</p>
+
+<figure class="highlight"><pre><code class="language-asm" data-lang="asm">[edge] coverage provides considerably more insight into the execution
+path of the program than simple block coverage. In particular, it trivially
+distinguishes between the following execution traces:
+
+  A -&gt; B -&gt; C -&gt; D -&gt; E (tuples: AB, BC, CD, DE)
+  A -&gt; B -&gt; D -&gt; C -&gt; E (tuples: AB, BD, DC, CE)
+
+This aids the discovery of subtle fault conditions in the underlying code,
+because security vulnerabilities are more often associated with unexpected
+or incorrect state transitions than with merely reaching a new basic block.</code></pre></figure>
+
+<p>Let me provide a visual example. if the execution flows from BB1 to BB2 and then to BB3, all basic blocks are covered(no vulnerability with 100% coverage). However, a use after free vulnerability happens if execution takes another path, from BB1 directly to BB3 and then to BB2.</p>
+
+<p><img src="/assets/pishi/36.png" width="200" style="display: block; margin: 0 auto" /></p>
+
+<p>While I knew how AFL and Jackalope has implemented edge coverage, I wanted to gain a deeper understanding of libFuzzer’s coverages collection.
+libFuzzer uses LLVM’s built-in coverage instrumentation (SanitizerCoverage). and among other metrics, it also claims supporting edge coverage, after spending some time in libfuzzer’s source code, I revisited SanitizerCoverage’s webpage and saw how they are trying to do it:<br />
+<code class="language-plaintext highlighter-rouge">If blocks A, B, and C are all covered we know for certain that the edges A=&gt;B and B=&gt;C were executed, but we still don’t know if the edge A=&gt;C was executed. Such edges of control flow graph are called critical. The edge-level coverage simply splits all critical edges by introducing new dummy blocks and then instruments those blocks:</code></p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="kt">void</span> <span class="nf">foo</span><span class="p">(</span><span class="kt">int</span> <span class="o">*</span><span class="n">a</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="p">{</span>
+    <span class="o">*</span><span class="n">a</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="k">else</span> <span class="p">{</span>
+    <span class="c1">// dummy block;</span>
+  <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>The definition of <code class="language-plaintext highlighter-rouge">critical edge</code> on Wikipedia is:<br />
+<code class="language-plaintext highlighter-rouge">A critical edge is an edge which is neither the only edge leaving its source block, nor the only edge entering its destination block.</code><br />
+but this is not a edge coverage.</p>
+
+<p>furthermore it’s discussed in <a href="https://wcventure.github.io/FuzzingPaper/Paper/SP18_ColLAFL.pdf">ColLAFL</a>:</p>
+
+<div style="display: flex; align-items: center;">
+    <img src="/assets/pishi/22.png" alt="Description of image" style="width: 300px; height: auto; margin-right: 10px;" />
+    <p>SanitizerCoverage further removes critical edges to secure the latter inference, and claim to support edge coverage.
+    But it is just an enhanced version of block coverage. Block coverage provides fewer information than edge coverage.
+    Critical edge is just one factor that hinders  inferring edge coverage from block coverage. As shown in Figure 2, 
+    there are no critical edges in function foo. Two paths P1 and P2 share most of their edges except that they take
+    different sub-paths in function foo. So the block coverages of P1 and P2 are exactly the same, but their edge coverages 
+    are different. For example, the edge B1-&gt;C1 only exists in path P1.
+</p>
+</div>
+<p>before we continue I have to say that what is happening under the hook for libFuzzer is way more complicated than this
+you can read about it on <a href="https://cyruscyliu.github.io/posts/2021-11-02-libFuzzer-cov-control/#details-beneath-fsanitizefuzzer">details beneath fsanitizefuzzer</a> blog post.</p>
+
+<p>I’d like to briefly discuss <a href="https://github.com/googleprojectzero/CompareCoverage">compare shattering</a>(comparison unrolling) or sub-instruction profiling, which is associated with <code class="language-plaintext highlighter-rouge">Data flow coverage</code>.
+Compare coverage is a method for simplifying complex comparisons in code into easier, one-byte versions that a fuzzer can easily guess.<br />
+Imagine trying to guess a password. If each attempt results an access denied, it would take a long time to crack it. However, if you receive feedback for each character you guess, you can significantly speed up the process of finding the correct password.</p>
+
+<p>Compare coverage will change this comparison to the next <a href="https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html">nested if statements</a>.
+guessing one out of 0xffffffff possible numbers, narrowed down to 16 possible answers each time.</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="k">if</span> <span class="p">(</span><span class="n">input</span> <span class="o">==</span> <span class="mh">0xabad1dea</span><span class="p">)</span> <span class="p">{</span>
+  <span class="cm">/* terribly buggy code */</span>
+<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+  <span class="cm">/* secure code */</span>
+<span class="p">}</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="k">if</span> <span class="p">(</span><span class="n">input</span> <span class="o">&gt;&gt;</span> <span class="mi">24</span> <span class="o">==</span> <span class="mh">0xab</span><span class="p">){</span>
+  <span class="k">if</span> <span class="p">((</span><span class="n">input</span> <span class="o">&amp;</span> <span class="mh">0xff0000</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="mi">16</span> <span class="o">==</span> <span class="mh">0xad</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">((</span><span class="n">input</span> <span class="o">&amp;</span> <span class="mh">0xff00</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="mi">8</span> <span class="o">==</span> <span class="mh">0x1d</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">if</span> <span class="p">((</span><span class="n">input</span> <span class="o">&amp;</span> <span class="mh">0xff</span><span class="p">)</span> <span class="o">==</span> <span class="mh">0xea</span><span class="p">)</span> <span class="p">{</span>
+        <span class="cm">/* terrible code */</span>
+        <span class="k">goto</span> <span class="n">end</span><span class="p">;</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>SanitizerCoverage already handles these situations with <code class="language-plaintext highlighter-rouge">__sanitizer_cov_trace_cmpX</code> and <code class="language-plaintext highlighter-rouge">__sanitizer_cov_trace_const_cmpX</code> as part of its <code class="language-plaintext highlighter-rouge">Data flow coverage</code>.</p>
+
+<p>Choosing between BB, Edge, or Path coverage involves a trade-off among performance, storage, and simplicity. Path coverage gives more insight into how a program runs, but it also makes implementation and analysis more complex with its own problems e.g. <a href="https://en.wikipedia.org/wiki/Path_explosion">Path explosion</a>.</p>
+
+<p>I’ve decided to focus on instrumenting basic blocks for now.</p>
+<h4 id="aarch64-time">AArch64 time.</h4>
+
+<p>Now we have to answer some more question:</p>
+<ul>
+  <li>How to assemble/disassemble?</li>
+  <li>how to find basic blocks?</li>
+  <li>How to fix the relative instruction?</li>
+</ul>
+
+<p>After experimenting with Keystone and reviewing TinyInst to understand how to locate basic blocks (BBs),
+I’ve decided to use Ghidra scripts. Ghidra supports macOS Boot Kext Collection and can enumerate basic blocks, as well as assemble and disassemble instructions. this is all we wanted.</p>
+
+<p>Binary rewriting is difficult. especially in the kernel, where every mistake could trigger a kernel panic. I wanted to make instrumentation as simple as possible while ensuring that it’s efficient, reliable, and acceptable.
+to make instrumentation super easy and reliable I based my approach on the facts that:</p>
+<ol>
+  <li>All ARM64 Instructions are 32 bits long, otherwise, it would be really difficult to patch small-sized instructions, with a big size jump. it was a real issue in <a href="https://www.ragestorm.net/blogs/?p=17">x86-64</a>.</li>
+  <li>BBs are Disjoint sets of addresses( I explain this later).</li>
+  <li>Almost all ARM64 instructions are non-relative.</li>
+</ol>
+
+<p>The A64 instruction set also has support for position-independent:</p>
+<ul>
+  <li>PC-relative literal loads. e.g <code class="language-plaintext highlighter-rouge">LDR</code> instruction with label.</li>
+  <li>Process state flag and compare based conditional branches.</li>
+  <li>Unconditional branches, including branch and link, have a range of ± 128MB.</li>
+</ul>
+
+<p>Beside above instructions we also have some other relative instructions:</p>
+<ul>
+  <li>ADR: PC-relative address.</li>
+  <li>ADRP: PC-relative address to 4KB page. ( but it definitely has one “add” after it.)</li>
+  <li>LDRSW (literal): Load Register Signed Word (literal).</li>
+  <li>PRFM (literal): Prefetch Memory (literal).</li>
+  <li>PAC: when Binding Pointers to Addresses. Using the address of the pointer(PC or SP) as a Context/modifier.</li>
+</ul>
+
+<p>AArch64 mnemonics can have 3 types of operands. <code class="language-plaintext highlighter-rouge">Immediate</code>, <code class="language-plaintext highlighter-rouge">Register</code>, <code class="language-plaintext highlighter-rouge">Memory</code>.<br />
+and as I told above the only PC relative operand is label and it’s only used in LDR instructions.
+<img src="/assets/pishi/27.png" style="display: block; margin: 0 auto" /></p>
+
+<p>Branches are the edges of the CFG, so they are not part of BBs.</p>
+
+<p>With respect to above points with a high probability we can find at least one non PC-relative <a href="https://developer.arm.com/documentation/ddi0602/2024-09/Base-Instructions">instruction</a> in every basic block (BB).</p>
+
+<p>Some non-relative instructions:</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python">    <span class="n">instruction</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s">'and'</span><span class="p">,</span>  <span class="s">'ldadd'</span><span class="p">,</span>   <span class="s">'stur'</span><span class="p">,</span>  <span class="s">'mov'</span><span class="p">,</span>
+    <span class="s">'add'</span><span class="p">,</span>   <span class="s">'str'</span><span class="p">,</span>    <span class="s">'ldp'</span><span class="p">,</span>   <span class="s">'bfxil'</span>
+    <span class="s">'stp'</span><span class="p">,</span>   <span class="s">'mul'</span><span class="p">,</span>    <span class="s">'lsl'</span><span class="p">,</span>   <span class="s">'sub'</span><span class="p">,</span>
+    <span class="s">'lsr'</span><span class="p">,</span>   <span class="s">'cmp'</span><span class="p">,</span>    <span class="s">'tst'</span><span class="p">,</span>   <span class="s">'ldur'</span><span class="p">,</span> 
+    <span class="s">'orn'</span><span class="p">,</span>   <span class="s">'bic'</span><span class="p">,</span>    <span class="s">'cmn'</span><span class="p">,</span>   <span class="s">'eon'</span><span class="p">,</span>
+    <span class="s">'neg'</span><span class="p">,</span>   <span class="s">'adc'</span><span class="p">,</span>    <span class="s">'mvn'</span><span class="p">,</span>   <span class="s">'ana'</span><span class="p">,</span> 
+    <span class="s">'eor'</span><span class="p">,</span>   <span class="s">'sbc'</span><span class="p">,</span>    <span class="s">'orr'</span><span class="p">,</span>   <span class="s">'ldset'</span><span class="p">,</span>
+    <span class="s">'ubfx'</span><span class="p">,</span>  <span class="s">'msub'</span><span class="p">,</span>   <span class="s">'udiv'</span><span class="p">,</span>  <span class="s">'cmhs'</span><span class="p">,</span>
+    <span class="s">'xtn'</span><span class="p">,</span>   <span class="s">'fmov'</span><span class="p">,</span>   <span class="s">'sxtw'</span><span class="p">,</span>  <span class="s">'ccmp'</span><span class="p">,</span>
+    <span class="s">'asr'</span><span class="p">,</span>   <span class="s">'strb'</span><span class="p">,</span>   <span class="s">'sbfx'</span><span class="p">,</span>  <span class="s">'bfi'</span><span class="p">,</span>  
+    <span class="s">'strh'</span><span class="p">,</span>  <span class="s">'xtn'</span><span class="p">,</span>    <span class="s">'uxtn'</span><span class="p">,</span>  <span class="s">'sxtw'</span><span class="p">,</span>
+    <span class="s">'sxtb'</span><span class="p">,</span>  <span class="s">'sxth'</span><span class="p">,</span>   <span class="s">'uxth'</span><span class="p">,</span>  <span class="s">'uxtb'</span>
+    <span class="p">]</span></code></pre></figure>
+
+<p>Without any need for adjusting, we can easily copy and execute this instructions somwhere else in the memory.</p>
+
+<h4 id="bbs-are-disjoint-sets">BBs are Disjoint sets</h4>
+
+<p>If the first instruction of the BB is a relative instruction, additional effort is required for instrumentation.
+but it was also obvious that the location of instrumentated instruction within each basic block (BB) does not matter.
+<em>each instruction inside one basic block represent that basic block equally.</em></p>
+
+<p>Each basic block can be considered as a disjoint set of all addresses, which is essential for the following proof.</p>
+
+<p><img src="/assets/pishi/set.png" width="850" style="display: block; margin: 0 auto" />
+<img src="/assets/pishi/28.png" width="300" style="display: block; margin: 0 auto" /></p>
+
+<p>In the above image, any one of the arrowed instructions of the BB can be instrumented.</p>
+
+<h4 id="coverage-efficiency">Coverage efficiency</h4>
+
+<p>To evaluate the efficiency of our instrumentation strategy, I instrumented IOSurface based on the above assumptions, we will instrument 6008 basic blocks (BBs) out of 7941.</p>
+
+<p>The remaining 1933 BBs as depicted in the following picture are mostly single-size BBs, containing only a single <code class="language-plaintext highlighter-rouge">unconditional jump</code> instruction, which do not contribute to the program’s logic and can be ignored.
+the question of whether an unconditional jump marks the end of a basic block is open to <a href="https://stackoverflow.com/questions/17684313/what-constitutes-the-start-of-a-basic-block">debate</a>.</p>
+
+<p><img src="/assets/pishi/31.png" width="300" style="display: block; margin: 0 auto" /></p>
+
+<p>We also classify basic blocks that contain a single <code class="language-plaintext highlighter-rouge">unconditional jump</code> or <code class="language-plaintext highlighter-rouge">ret</code> along with the <code class="language-plaintext highlighter-rouge">bti</code> instruction as a single-sized basic block or thunks.
+<code class="language-plaintext highlighter-rouge">bti</code> or <a href="https://en.wikipedia.org/wiki/Indirect_branch_tracking">branch target identification</a> instructions similatr to PAC are not part of the program’s intended behavior; there are emited by compiler to protect against <a href="https://en.wikipedia.org/wiki/Return-oriented_programming">Return-oriented programming</a>.
+<img src="/assets/pishi/bti.png" width="300" style="display: block; margin: 0 auto" /></p>
+
+<p>Furthermore <code class="language-plaintext highlighter-rouge">ldr</code> is relative instruction when its operand is a label.</p>
+
+<p>If we only add <code class="language-plaintext highlighter-rouge">ldr</code> to above the list we will have:</p>
+<ol>
+  <li>1214 BBs with just one <code class="language-plaintext highlighter-rouge">b</code>, approximately 15.29%</li>
+  <li>19 BBs we couldn’t instrument, approximately 0.24%</li>
+  <li>6708 BBs we instrumented, approximately 84.47%</li>
+</ol>
+
+<p>This means we have instrumented 99.72% of valuable BBs. BBs with at least one data movement, arithmetic, logical, shift and rotate, etc instruction.</p>
+
+<h4 id="putting-everything-togeter">Putting everything togeter.</h4>
+<p><em>Before continuing, I should mention that Pishi also accepts address ranges, allowing you to precisely target what you want to instrument.</em></p>
+
+<p>Given all above facts and assumtions 
+we can write a ghidra script that does following steps in <code class="language-plaintext highlighter-rouge">Boot Kext Collection</code>:</p>
+
+<ol>
+  <li>Find the trampolines we had filled in our KEXT with <code class="language-plaintext highlighter-rouge">.rept .endr</code> macros.</li>
+  <li>Find all BBs in requested <code class="language-plaintext highlighter-rouge">address ranges</code>, or target <code class="language-plaintext highlighter-rouge">KEXT</code>.</li>
+  <li>Loop into BBs:
+    <ol>
+      <li>Find first non-relative instruction in it.</li>
+      <li>Replace the instruction with a jump to the trampoline.</li>
+      <li>Fix the trampoline: orginal instruction, BB’s ID, a jump back to the next address of instrumented instruction.</li>
+      <li>Use next trampoline.</li>
+    </ol>
+  </li>
+</ol>
+
+<p>I also have to note that the ghidra script was maddeningly slow, due to the fact that it had to instrumnt tens of thousands BBs in each KEXT file.
+After some investigation, I managed to replace the bottleneck function in Ghidra with a super-fast version.</p>
+
+<p>Let’s see the results following image is the Boot Kext Collection aftre instrumentation.
+left side instrumented BB and right side is the fixed trampoline.</p>
+
+<p><img src="/assets/pishi/30.png" style="display: block; margin: 0 auto" /></p>
+
+<h4 id="collecting-coverage">Collecting Coverage</h4>
+
+<p>Now that we have instrumented the BBs, we can collect coverage inside our <code class="language-plaintext highlighter-rouge">_sanitizer_cov_trace_pc</code> function.<br />
+My implementation of <code class="language-plaintext highlighter-rouge">_sanitizer_cov_trace_pc</code> resembles Linux KCOV. It collects coverage exclusively for the target thread, assigned through an IOCTL. The collected data is then written into <code class="language-plaintext highlighter-rouge">coverage_area</code>, a shared memory between the fuzzer process (EL0) and Pishi’s KEXT (EL1).</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="kt">void</span> <span class="nf">sanitizer_cov_trace_pc</span><span class="p">(</span><span class="kt">uint16_t</span> <span class="n">kext</span><span class="p">,</span> <span class="kt">uintptr_t</span> <span class="n">address</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="n">__improbable</span><span class="p">(</span><span class="n">do_instrument</span><span class="p">)</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="cm">/* number of cases we want to reject due to wrong thread id is a lot more than targeted_kext so we compare it first. */</span>
+        <span class="k">if</span><span class="p">(</span> <span class="n">__improbable</span><span class="p">(</span><span class="n">instrumented_thread</span> <span class="o">==</span> <span class="n">thread_tid</span><span class="p">(</span><span class="n">current_thread</span><span class="p">()))</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="cm">/* 
+                I just added targeted_kext to be able to instument multiple KEXTs at once,
+                instead of build/install/boot for each KEXT. simple benchmark shows it has not that much performance penalty.
+            */</span>
+            <span class="k">if</span> <span class="p">(</span> <span class="n">__probable</span><span class="p">(</span> <span class="p">(</span><span class="n">targeted_kext</span> <span class="o">&amp;</span> <span class="n">kext</span><span class="p">)</span> <span class="o">==</span> <span class="n">kext</span><span class="p">)</span> <span class="p">)</span> <span class="p">{</span>
+                <span class="k">if</span> <span class="p">(</span> <span class="n">__improbable</span><span class="p">(</span><span class="n">coverage_area</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">)</span>
+                    <span class="k">return</span><span class="p">;</span>
+                
+                <span class="cm">/* The first 64-bit word is the number of subsequent PCs. */</span>
+                <span class="k">if</span> <span class="p">(</span> <span class="n">__probable</span><span class="p">(</span><span class="n">coverage_area</span><span class="o">-&gt;</span><span class="n">kcov_pos</span> <span class="o">&lt;</span> <span class="mh">0x20000</span><span class="p">)</span> <span class="p">)</span> <span class="p">{</span>
+                    <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">pos</span> <span class="o">=</span> <span class="n">coverage_area</span><span class="o">-&gt;</span><span class="n">kcov_pos</span><span class="p">;</span>
+                    <span class="n">coverage_area</span><span class="o">-&gt;</span><span class="n">kcov_area</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">=</span> <span class="n">address</span><span class="p">;</span>
+                    <span class="n">coverage_area</span><span class="o">-&gt;</span><span class="n">kcov_pos</span> <span class="o">+=</span><span class="mi">1</span><span class="p">;</span>
+                <span class="p">}</span>
+          <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<p><img src="/assets/pishi/collect.png" width="450" style="display: block; margin: 0 auto" /></p>
+
+<h4 id="how-to-feed-the-coverage-to-a-fuzzer">How to feed the coverage to a fuzzer?</h4>
+
+<p>We need to tune a fuzzer to be able to feed our coverag into it, once I have used libFuzzer’s <code class="language-plaintext highlighter-rouge">Extra coverage counters</code>,
+you can read about it in my another blog post here <a href="https://r00tkitsmm.github.io/fuzzing/2024/03/27/libffuzzerkernel.html">Structure-Aware Linux kernel Fuzzing with libFuzzer</a>.</p>
+
+<p>libFuzzer <a href="https://github.com/llvm/llvm-project/blob/main/compiler-rt/lib/fuzzer/FuzzerLoop.cpp#L522">collects</a> different signals to evaluate the code coverage: edge coverage, edge counters, value profiles, indirect caller/callee pairs, etc. These signals combined are called features (ft:). Extra coverage counters is also part of the features.<br />
+If you check how libFuzzer collects coverages in the <code class="language-plaintext highlighter-rouge">TracePC::CollectFeatures</code> method, you will see that similar to <code class="language-plaintext highlighter-rouge">-fsanitize-coverage=inline-8bit-counters</code>,  the extra counter is also an array of <a href="https://github.com/llvm/llvm-project/blob/main/compiler-rt/lib/fuzzer/FuzzerTracePC.h#L261">8-bit counters</a>.</p>
+
+<p>With <code class="language-plaintext highlighter-rouge">-fsanitize-coverage=inline-8bit-counters</code> the compiler will insert inline counter increments on every BB. This is similar to the depricate <code class="language-plaintext highlighter-rouge">-fsanitize-coverage=trace-pc-guard</code> flag but instead of a callback the instrumentation simply increments a counter.( in the next blog post we will also increment counters inline and and optimize away function calls)</p>
+
+<p>Unfortunately, it seems that the macOS version of libFuzzer <a href="https://reviews.llvm.org/D106676">has not</a> implemented <code class="language-plaintext highlighter-rouge">Extra coverage counters</code>. this is not a big probalem, we can add this functionality into it, we just need to export a buffer and add some changes to <a href="https://github.com/llvm/llvm-project/blob/main/compiler-rt/lib/fuzzer/FuzzerExtraCountersDarwin.cpp">FuzzerExtraCountersDarwin.cpp</a> file, then build LLVM.</p>
+
+<p><img src="/assets/pishi/33.png" width="7800" style="display: block; margin: 0 auto" /></p>
+
+<p>With above patch the fuzzer can collect the coverage over the shared memory and feed it into libFuzzer,</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="kt">void</span> <span class="nf">pishi_collect</span><span class="p">()</span>
+<span class="p">{</span>
+  <span class="k">struct</span> <span class="nc">pishi</span> <span class="o">*</span><span class="n">coverage</span> <span class="o">=</span> <span class="p">(</span><span class="k">struct</span> <span class="nc">pishi</span> <span class="o">*</span><span class="p">)</span><span class="n">mc</span><span class="p">.</span><span class="n">ptr</span><span class="p">;</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">coverage</span><span class="o">-&gt;</span><span class="n">kcov_pos</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+  <span class="p">{</span>
+    <span class="kt">uint64_t</span> <span class="n">pc</span> <span class="o">=</span> <span class="n">coverage</span><span class="o">-&gt;</span><span class="n">kcov_area</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+    <span class="n">_pishi_libfuzzer_coverage</span><span class="p">[</span><span class="n">pc</span> <span class="o">%</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">_pishi_libfuzzer_coverage</span><span class="p">)]</span><span class="o">++</span><span class="p">;</span>
+  <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Our KEXT resets the <code class="language-plaintext highlighter-rouge">kcov_pos</code> for the next iteration. libfuzzer also cleans its own counter with <a href="https://github.com/rust-fuzz/libfuzzer/blob/main/libfuzzer/FuzzerLoop.cpp#L145">ClearExtraCounters</a> function.</p>
+
+<p>Let’s apply instrumentation to our sample <code class="language-plaintext highlighter-rouge">fuzz_me</code> function to see if the fuzzer works properly.<br />
+As you can see in the video, we will get a kernel panic in some seconds.</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="k">extern</span> <span class="s">"C"</span> <span class="kt">int</span> <span class="nf">LLVMFuzzerTestOneInput</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="n">data</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">size</span><span class="p">)</span> 
+<span class="p">{</span>
+  <span class="n">pishi_start</span><span class="p">(</span><span class="n">PISHI_SAMPLE</span><span class="p">);</span>
+  <span class="kt">uintptr_t</span> <span class="o">**</span><span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uintptr_t</span> <span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">data</span><span class="p">;</span>
+  <span class="n">ioctl</span><span class="p">(</span><span class="n">pishi_fd</span><span class="p">,</span> <span class="n">PISHI_IOCTL_FUZZ</span><span class="p">,</span> <span class="n">a</span><span class="p">);</span>
+  <span class="n">pishi_stop</span><span class="p">();</span>
+  <span class="n">pishi_collect</span><span class="p">();</span>
+  <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<iframe width="460" height="315" style="display: block; margin: 0 auto" src="https://www.youtube.com/embed/ohOfCpG1eok?si=boPPyIG_MPy9rZRx" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen=""></iframe>
+<p><br />
+<br />
+As you see, each time libFuzzer finds a new BB, it increments <code class="language-plaintext highlighter-rouge">ft:</code>, i.e., the features described earlier.</p>
+
+<h4 id="mission-accomplished">Mission accomplished!</h4>
+<p>At this point we have setup everything, we just need to instrument <code class="language-plaintext highlighter-rouge">com.apple.driver.AppleAVD</code> by some and enjoy our coverage-guided fuzzing of AppleAVD.<br />
+is’t this cool?</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="n">LLVMFuzzerInitialize</span><span class="p">(</span><span class="kt">int</span> <span class="o">*</span><span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">***</span><span class="n">argv</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="p">...</span>
+  <span class="n">service</span> <span class="o">=</span> <span class="n">IOServiceGetMatchingService</span><span class="p">(</span><span class="n">kIOMainPortDefault</span><span class="p">,</span> <span class="n">IOServiceMatching</span><span class="p">(</span><span class="s">"AppleAVD"</span><span class="p">));</span>
+  <span class="n">IOServiceOpen</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">mach_task_self</span><span class="p">(),</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">connect</span><span class="p">);</span>
+  <span class="p">...</span>
+<span class="p">}</span>
+
+<span class="k">extern</span> <span class="s">"C"</span> <span class="kt">int</span> <span class="n">LLVMFuzzerTestOneInput</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="n">data</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">size</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="n">pishi_start</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+  <span class="p">....</span>
+  <span class="n">IOConnectCallMethod</span><span class="p">(</span>
+      <span class="n">connect</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span>
+      <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span>
+      <span class="n">data</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span>
+      <span class="nb">NULL</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">output_scalars_count_result</span><span class="p">,</span>
+      <span class="n">output_structure</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">output_structure_size_result</span><span class="p">);</span>
+
+  <span class="n">pishi_stop</span><span class="p">();</span>
+  <span class="n">pishi_collect</span><span class="p">();</span>
+  <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<h4 id="the-final-design">The final design</h4>
+
+<p>The final design of our fuzzer could be as follows, we will embed our KEXT into the Boot Kext Collection then instrument all basic blocks within the target KEXT in <code class="language-plaintext highlighter-rouge">Boot Kext Collection</code>.</p>
+
+<p>Our KEXT will allocate and map a shared memory inside the fuzzer process.<br />
+in case of fuzzing stateless kerenl components, like a buffer or a memory parser, you can continus using In-memory Looping.<br />
+but in case of stateful APIs,
+in each iteration fuzzer can fork a new harness inside libFuzzer’s <code class="language-plaintext highlighter-rouge">LLVMFuzzerTestOneInput</code>, the forked process will inherit our <code class="language-plaintext highlighter-rouge">fd</code> and the new generated input, then the child would enable coverage with the inherited <code class="language-plaintext highlighter-rouge">fd</code> for the current thread and after stop and exit, parnet would collect the coverage. so next fork would have a <em>semi-fresh</em> kernel state. otherwise each iteration would affect next one via leaked resoruces(fd, mach ports, memory, task,…) if you miss closing them, most of the resouces will be automatically closed when the process <a href="https://pubs.opengroup.org/onlinepubs/9699919799/functions/_Exit.html#tag_16_01_03_01">terminates</a>, regardless of the reason for the process termination. but there could be some that outlive the process after termination.( for example allocated netfilter objects in Linux). <a href="https://github.com/google/syzkaller/blob/master/executor/executor.cc">syzkaller</a> also has its own way of having a fresh state for each execution.</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="n">LLVMFuzzerTestOneInput</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="n">data</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">size</span><span class="p">)</span>
+<span class="p">{</span> 
+  <span class="k">if</span> <span class="p">(</span><span class="n">fork</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">Pishi_start_coverage</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+    <span class="n">do_fuzz</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span>
+    <span class="n">pishi_stop_coverage</span><span class="p">();</span>
+    <span class="c1">// exit</span>
+  <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+    <span class="n">wait</span><span class="p">(</span><span class="nb">NULL</span><span class="p">);</span>
+    <span class="n">pishi_collect_coverage_in_parent</span><span class="p">();</span>
+  <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<p><img src="/assets/pishi/23.png" width="500" style="display: block; margin: 0 auto" /></p>
+
+<h4 id="performace-and-benchmark">Performace and Benchmark</h4>
+
+<p>to have a very basic and straightforward understanding of performance degradation,<br />
+I instrumented <code class="language-plaintext highlighter-rouge">com.apple.filesystems.apfs</code> in macOS with Pishi and <a href="https://github.com/torvalds/linux/tree/master/fs/ext4">ext4 directoty</a> of Linux kernel with KCOV and executed an IO/File system intensive program.</p>
+
+<p><img src="/assets/pishi/performance.png" width="500" style="display: block; margin: 0 auto" /></p>
+
+<h4 id="saving-some-cpu-cycles">Saving some CPU cycles.</h4>
+<p>Despite having no tangible runtime overhead, with a little effort, we can embed <code class="language-plaintext highlighter-rouge">_sanitizer_cov_trace_pc</code> into trampoline, as well as optimizing  <code class="language-plaintext highlighter-rouge">_push_regs</code> and <code class="language-plaintext highlighter-rouge">_pop_regs</code> away by saving and restoring only clobbered registers, we can save some unnecessary CPU cycles per instrumented BB.</p>
+
+<h4 id="how-to-instrument-xnu">How to instrument XNU?</h4>
+
+<p>Unlike KEXTs we can’t just enumerate all BBs in XNU kernel and instrumenting them.
+some functions can’t be instrumented e.g <a href="https://github.com/apple-oss-distributions/xnu/blob/main/san/coverage/kcov-blacklist-arm64">kcov-blacklist-arm64</a> and <a href="https://github.com/apple-oss-distributions/xnu/blob/main/san/coverage/kcov-blacklist">kcov-blacklist</a>. I also found some more non-instrumentable functions in my tests.</p>
+
+<p>So how can we filter these functions out?
+The XNU kernel binary is stripped of symbols and function names, except exported functions.
+but kernels inside KDK come with <a href="https://en.wikipedia.org/wiki/DWARF">DWARF</a> file, and the offsets of kernel functions within the <code class="language-plaintext highlighter-rouge">Boot Kext Collection</code> and within the <code class="language-plaintext highlighter-rouge">DWARF</code> files are same.<br />
+therefore we can create <code class="language-plaintext highlighter-rouge">[Function Name, Offset]</code> pairs for the functions we want to instrument from the DWARF file, and then use this information to instrument intended targets within the <code class="language-plaintext highlighter-rouge">Boot Kext Collection</code>.
+this is the point were you can target one path, a file or a function inside XNU soruce tree. as I told in the introduction.</p>
+
+<p><img src="/assets/pishi/25.png" width="600" style="display: block; margin: 0 auto" /></p>
+
+<h4 id="stateful-fuzzing-with-libprotobuf-mutator">Stateful fuzzing with libprotobuf-mutator</h4>
+<p>Another way to describe fuzzing is that we want to generated inputs for a target <a href="https://en.wikipedia.org/wiki/Finite-state_machine">State Machine</a>, in hope for a transition into an unintended <a href="https://en.wikipedia.org/wiki/Weird_machine">state</a>.</p>
+
+<p>for stateful APIs the accepted inputs are valid sequance of APIs that each API or state transition remembers preceding states/context(opened fd, socket, handle,…) in case it has context dependency to the previous states. for example <code class="language-plaintext highlighter-rouge">write</code> system call has context dependency on <code class="language-plaintext highlighter-rouge">open</code> system call.</p>
+
+<p>We can describes these APIs in Protobuf’s language, in this way we have a convenient way to serialize a instance of this structured data, and libprotobuf-mutator provides an easy way to mutate it.</p>
+
+<p>As I told before, Pishi supports instrumenting XNU kernel. 
+and we have made libFuzzer aware of Pishi, so nothing prevenst us to use libprotobuf-mutator to have <a href="https://www.ndss-symposium.org/ndss-paper/mock-optimizing-kernel-fuzzing-mutation-with-context-aware-dependency/">Context-aware</a>, structure-aware, feedback-aware XNU fuzzing similar to <a href="https://github.com/googleprojectzero/SockFuzzer">SockFuzzer</a>.
+<a href="https://www.youtube.com/watch?v=U60hC16HEDY">More</a> <a href="https://www.youtube.com/watch?v=xzG0pLM4Q64">info</a> <a href="https://media.ccc.de/v/35c3-9579-attacking_chrome_ipc">about</a> <a href="https://www.youtube.com/watch?v=S8JvzWDnjc0">libprotobuf-mutator</a>.</p>
+
+<p>for example, if we instrument the following directories, Mach IPC and VM subsystems of XNU with Pishi.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">osfmk</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s">"/osfmk/ipc"</span><span class="p">,</span>
+    <span class="s">"/osfmk/vm"</span><span class="p">,</span>
+    <span class="s">"/osfmk/voucher"</span><span class="p">,</span>
+<span class="p">]</span></code></pre></figure>
+
+<p>We can then perform fuzzing using a protobuf similar to the one shown below.</p>
+
+<figure class="highlight"><pre><code class="language-protobuf" data-lang="protobuf"><span class="c1">// mach.proto</span>
+<span class="kd">message</span> <span class="nc">Session</span> <span class="p">{</span>
+  <span class="k">repeated</span> <span class="n">Command</span> <span class="na">commands1</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="kd">message</span> <span class="nc">Command</span> <span class="p">{</span>
+  <span class="k">oneof</span> <span class="n">command</span> <span class="p">{</span>
+    <span class="n">MachPortNames</span> <span class="na">machPortNames</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="c1">// API: mach_port_names</span>
+    <span class="c1">// ....</span>
+    <span class="n">MachVmAllocate</span> <span class="na">machvmallocate</span> <span class="o">=</span> <span class="mi">44</span><span class="p">;</span> <span class="c1">// API: mach_vm_allocate</span>
+  <span class="p">}}</span></code></pre></figure>
+
+<p>Within just less than an hour, I managed to identify an unexploitable race condition deep inside <code class="language-plaintext highlighter-rouge">mach_msg</code>.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">panic</span><span class="p">(</span><span class="n">cpu</span> <span class="mi">1</span> <span class="n">caller</span> <span class="mh">0xfffffe0015cbee28</span><span class="p">)</span><span class="o">:</span> <span class="n">PAC</span> <span class="n">failure</span> <span class="n">from</span> <span class="n">kernel</span> <span class="n">with</span> <span class="n">DA</span> <span class="n">key</span> <span class="k">while</span> <span class="n">authing</span> <span class="n">x16</span> <span class="n">at</span> <span class="n">pc</span> <span class="mh">0xfffffe001549d268</span><span class="p">,</span> <span class="n">lr</span> <span class="mh">0x95bcfe001548e020</span> <span class="p">(</span><span class="n">saved</span> <span class="n">state</span><span class="o">:</span> <span class="mh">0xfffffe401e3af650</span><span class="p">)</span></code></pre></figure>
+
+<h4 id="booting-macos">Booting macOS</h4>
+
+<p>I have tested the instrumented kernel on a real Macbook and Parallels Desktop, Starting with <a href="https://kb.parallels.com/129232">Parallels Desktop 18</a>, it’s possible to boot into Recovery Mode.</p>
+
+<p>Another option is use <code class="language-plaintext highlighter-rouge">Virtualization.framework</code> directly or via <a href="https://github.com/utmapp/UTM">UTM</a>, do you want to read two fantastic articles about it?</p>
+<ol>
+  <li><a href="https://gist.github.com/steven-michaud/fda019a4ae2df3a9295409053a53a65c">Running Third Party Kernel Extensions on Virtualization Framework macOS Guest VMs</a></li>
+  <li><a href="https://gist.github.com/steven-michaud/16cff5628850799e428a2f2c56029677">Custom Boot Objects in Virtualization Framework macOS Guest VMs</a></li>
+</ol>
+
+<p>The ability to boot an instrumented Boot Kext Collection a real MacBook enables you to fuzz KEXTs that are unavailable in a virtual machine environment.</p>
+
+<h4 id="libfuzzer-syzkaller-and-more">libFuzzer, syzkaller, and more</h4>
+<p>I described using libFuzzer to fuzz stateless inputs like AppleAVD and AppleJPEGDriver.
+and libprotobuf-mutator to fuzz stateful APIs like XNU’s mach traps and system calls.</p>
+
+<p><a href="https://github.com/google/syzkaller">syzkaller</a> is another popular fuzzer. you can fuzz the XNU kernel using syzkaller and Pishi. 
+at the time of writing this blog, Pishi’s kernel module needs a slight change to be able to hook into syzkaller, but it’s just matter of changing some IOCTLs.</p>
+
+<p>Finally, I have to emphasize again that Pishi is instrumneation tool you can hook it into any off-the-shelf fuzzer you like. including <a href="https://github.com/google/honggfuzz">honggfuzz</a>, <a href="https://blog.ritsec.club/posts/afl-under-hood/">AFL++</a> or <a href="https://github.com/AFLplusplus/LibAFL">LibAFL</a> with some Rust magic, it’s easy to add custom instrumentation backends to LibAFL.</p>
+
+<p>From now on, it’s simply a matter of implementing your harness for any target you choose.</p>
+
+<h4 id="remote-attack-surfaces">Remote attack surfaces.</h4>
+<p>Pishi can be used to fuzz remote attack vectors such as the WiFi and Bluetooth stacks, as well as SMB, CIFS, and NFS, Similar to how <a href="https://www.uni-goettingen.de/de/document/download/6b0d1e9d8e2fb7f57cc1a2fab1b071e7.pdf/huster_S&amp;P24.pdf">“To Boldly Go Where No Fuzzer Has Gone Before”</a> paper approached the topic.</p>
+
+<p>As a basic test, instrument the <code class="language-plaintext highlighter-rouge">com.apple.filesystems.smbfs</code> module. Share a folder in a virtual machine and mount it externally. Then, execute a simple command like <code class="language-plaintext highlighter-rouge">ls</code> to observe the coverage results within the VM. with a slightly modified <code class="language-plaintext highlighter-rouge">_sanitizer_cov_trace_pc</code> you can view the coverage.</p>
+
+<p>if we are fuzzing remote attack surfaces with VM and the fuzzer is running in the Host, then we need to <a href="https://tracingsummit.org/ts/2012/files/Tracing-summit-2012-virtio-trace.pdf">share the coverage</a> from Guest OS to Host OS. The only practical way is using shared memory.</p>
+
+<p>Unfortunately, neither <a href="https://www.qemu.org/docs/master/system/devices/ivshmem.html">ivshmem</a> nor virtIO-shmem is supported by the Virtualization.framework or QEMU (and thus UTM) on macOS.
+otherwise it would have been super easy to <a href="https://liujunming.top/2021/11/30/QEMU-tutorial-Inter-VM-Shared-Memory-device/">Inter-VM Shared Memory</a>.</p>
+
+<p>We will discuss this solution architect in detail later, but briefly, to have an efficient and real-time/low latency communication between the host and guest in QEMU. One solution is to use a <a href="https://blog.davidv.dev/posts/learning-pcie/">custom PCI/PCIe device(VirtIO,…) to share a memory(again MMIO)</a> backed by a shared memory in the Host, and mapping that memory(PCI <a href="https://stackoverflow.com/questions/30190050/what-is-the-base-address-register-bar-in-pcie">BARs</a>) inside the kernel or user mode of the Guest OS, unfortunately we don’t have a luxury of Linux to simply mapping BARs via <code class="language-plaintext highlighter-rouge">\dev\mem</code> in macOS. you have to set <code class="language-plaintext highlighter-rouge">kmem=1</code> in your <code class="language-plaintext highlighter-rouge">boot-args</code> on DEBUG kernel, in case of using release build, we need to have a PCI side inside our Pishi KEXT.</p>
+
+<p><img src="/assets/pishi/pci.png" width="350" style="display: block; margin: 0 auto" /></p>
+
+<p>This enables us not only to collect coverage but also to interact with the potential an agent inside.</p>
+
+<p>We might be able to locally mount the SMB and run the harness there, without needing to share the coverage outside.
+but using VM is more generic way.</p>
+
+<h4 id="another-approach">Another approach?</h4>
+<p>I was considering an alternative approach If everything had failed, the well known method of replacing each BB of a target KEXT with a <a href="https://developer.arm.com/documentation/102120/0101/Debug-exceptions">breakpoint</a>, then boot a <code class="language-plaintext highlighter-rouge">Boot Kext Collection</code> with modified <a href="https://github.com/apple-oss-distributions/xnu/blob/8d741a5de7ff4191bf97d57b9f54c2f6d4a15585/osfmk/arm64/sleh.c#L909">EL1 exception handler</a> in XNU that would log and restore every trapped BBs.</p>
+
+<p><a href="https://github.com/YungRaj/MacRootKit">MacRootKit</a> is also another (very good) promising way, it’s trying to boot XNU with <code class="language-plaintext highlighter-rouge">hypervisor.framework</code>, and with it’s own <a href="https://gist.github.com/imbushuo/51b09e61ecd7b7ac063853ad65cedf34">hypervisor</a> it can have full control over the system. it’s still a work in progress, to be able to boot XNU.</p>
+
+<p><a href="https://blog.impalabs.com/2211_hyperpom.html">Hyperpom</a>, a cool Rust project, is a good example of using a <code class="language-plaintext highlighter-rouge">hypervisor.framework</code> to collect code coverage. 
+This project also uses breakpoints to trap into the <a href="https://developer.arm.com/documentation/dui0801/l/Overview-of-AArch64-state/Exception-levels">EL2</a>, As you can see in the <a href="https://docs.rs/hyperpom/latest/hyperpom/hooks/struct.Hooks.html">excerpt of</a> their ASCII art.</p>
+
+<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp">  <span class="n">Original</span> <span class="n">instructions</span>           <span class="n">Hooked</span> <span class="n">instructions</span>
+  <span class="o">+----------------------+</span>        <span class="o">+----------------------+</span>
+  <span class="o">|</span> <span class="mh">0x00</span><span class="o">:</span> <span class="n">mov</span> <span class="n">x0</span><span class="p">,</span> <span class="mh">0x42</span>   <span class="o">|</span>        <span class="o">|</span> <span class="mh">0x00</span><span class="o">:</span> <span class="n">mov</span> <span class="n">x0</span><span class="p">,</span> <span class="mh">0x42</span>   <span class="o">|</span>
+  <span class="o">|</span> <span class="mh">0x04</span><span class="o">:</span> <span class="n">mov</span> <span class="n">x1</span><span class="p">,</span> <span class="mh">0x43</span>   <span class="o">|-------&gt;|</span> <span class="mh">0x04</span><span class="o">:</span> <span class="n">brk</span> <span class="err">#</span><span class="mi">0</span>  <span class="o">--------------&gt;</span> <span class="n">executes</span> <span class="n">handler</span>
+  <span class="o">|</span> <span class="mh">0x08</span><span class="o">:</span> <span class="n">add</span> <span class="n">x0</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">x1</span> <span class="o">|</span>        <span class="o">|</span> <span class="mh">0x08</span><span class="o">:</span> <span class="n">add</span> <span class="n">x0</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">x1</span> <span class="o">|</span>        <span class="k">for</span> <span class="n">address</span> <span class="mh">0x04</span>
+  <span class="o">|</span> <span class="mh">0x0c</span><span class="o">:</span> <span class="n">ret</span>            <span class="o">|</span>        <span class="o">|</span> <span class="mh">0x0c</span><span class="o">:</span> <span class="n">ret</span>            <span class="o">|</span>
+  <span class="o">+----------------------+</span>        <span class="o">+----------------------+</span></code></pre></figure>
+
+<p>Even though Hyperpom is not capable of loading a simple Mach-O file, let alone booting XNU or instrumenting KEXTs, its heavily commented source code is definitely worth reading. Hyperpom can only map a shellcode that has zero trappable instructions or sytem calls e.g. MSR, MRS, SVC,… into a VM memory and execute it, which is a significant barrier to fuzzing real targets. To be able to execute a Mach-O file, you need to <a href="https://github.com/kallsyms/appbox/blob/main/src/dyld.rs">map the dyld shared cache</a>, <a href="https://github.com/kallsyms/appbox/blob/main/src/lib.rs">trap system calls</a> and probably a lot more.</p>
+
+<p>I want to mention that using breakpoints is slower than the binary patching method I used in Pishi. <a href="https://developer.arm.com/documentation/102412/0103/Handling-exceptions/Taking-an-exception">Taking</a> and <a href="https://developer.arm.com/documentation/102412/0103/Handling-exceptions/Exception-handling-examples">handling</a> an exception, then <a href="https://developer.arm.com/documentation/102412/0103/Handling-exceptions/Returning-from-an-exception">returning</a> from it, causes some overhead.
+<img src="/assets/pishi/breakpoint.svg" width="300" style="display: block; margin: 0 auto" /></p>
+
+<p>We may also be able to modify QEMU to handle breakpoints while booting XNU with UTM to collect coverage instead of writing the hypervisor from scratch.</p>
+
+<p>I also had some thoughts about using <a href="https://github.com/AsahiLinux/m1n1">M1N1</a> to instrument kernel and KEXTs, Similar to the modified XNU exception handler, M1N1 also allows you to instrument KEXTs that are not available in a VM environment, such as AppleAVD.</p>
+
+<p>As a last resort I could also implement the instrumentation part in the KEXT to find BBs and patch addresses at runtime similar to MacRootKit. However, one thread may attempt to execute an address while we want to instrument it. especially in the time window of instrumenting ten thousand BBs, 
+This race condition is challenging, it requires suspending all threads and disabling preemption.</p>
+
+<h4 id="additional-features-and-optimizations">Additional features and optimizations.</h4>
+
+<p>Current user-mode binary instrumentation options in macOS, such as <a href="https://github.com/googleprojectzero/TinyInst">TinyInst</a>, <a href="https://blog.impalabs.com/2211_hyperpom.html">Hyperpom</a>, <a href="https://blog.quarkslab.com/android-greybox-fuzzing-with-afl-frida-mode.html">Frida</a>( Even though you can easily customize Frida, and I have used it many times similar to how <a href="https://www.usenix.org/conference/woot20/presentation/heinze">seemoo-lab</a> has fuzzed bluetoothd.) and <a href="https://www.youtube.com/watch?v=fTNzylTMYks">QBDI</a>, primarily support scenarios where a library can be <a href="https://github.com/googleprojectzero/Jackalope/tree/main/examples">loaded in a harness</a> to call target functions. However, these options do not support fuzzing attack vectors located deep within a <a href="https://www.youtube.com/watch?app=desktop&amp;v=D1jNCy7-g9k">XPC</a> or <a href="https://www.launchd.info/">launchd daemon/agent</a> executable file, since fuzzers cannot directly spawn these processes (only launchd can do that) to send input and collect coverage in a loop. In the next blog post, I will attempt to implement coverage-guided fuzzing for these specific targets.</p>
+
+<p>I will also discuss additional features like.</p>
+<ul>
+  <li>Supporting snapshot.</li>
+  <li>Data flow coverage.</li>
+  <li>Binary level Address Sanitizer.</li>
+  <li>Sharing coverage from Guest OS to Host OS(Remote attack surfaces).</li>
+</ul>
+
+<p>Also lengthy discussing about other coverage metrics and optimizations in instrumentation with <a href="https://web.archive.org/web/20201112023136/https://repret.wordpress.com/2017/05/01/improving-coverage-guided-fuzzing-using-static-analysis/">Static Analysis</a>, <a href="https://www.cse.iitb.ac.in/~uday/dfaBook-web/">Data Flow Analysis</a> (e.g <a href="https://web.archive.org/web/20201109022539/https://repret.wordpress.com/2018/03/21/128/">Disposable Probes</a>, <a href="https://users.sdsc.edu/~mtikir/publications/papers/issta02.pdf">Dominator Tree</a>).</p>
+
+<p>Further Resources on Optimizations</p>
+<ol>
+  <li><a href="https://arxiv.org/pdf/2004.14191">Efficient Binary-Level Coverage Analysis</a></li>
+  <li><a href="https://www.usenix.org/system/files/usenixsecurity23-priyadarshan.pdf">Safer: Efficient and Error-Tolerant Binary Instrumentation</a></li>
+  <li><a href="https://arxiv.org/abs/1812.10729">Fine-grained Code Coverage Measurement in Automated Black-box Android Testing</a></li>
+  <li><a href="https://drops.dagstuhl.de/storage/01oasics/oasics-vol047_wcet2015/OASIcs.WCET.2015.95/OASIcs.WCET.2015.95.pdf">Using SMT Solving for the Lookup of Infeasible Paths in Binary Programs</a></li>
+  <li><a href="https://pages.cs.wisc.edu/~ohmann/papers/ase-2016.pdf">Optimizing Customized Program Coverage</a></li>
+  <li><a href="https://dl.acm.org/doi/pdf/10.1145/2500828.2500829">Deriving Code Coverage Information from Profiling Data Recorded for a Trace-based Just-in-time Compiler</a></li>
+  <li><a href="https://ieeexplore.ieee.org/document/6226373">Post-silicon code coverage for multiprocessor system-on-chip designs</a></li>
+  <li><a href="https://ieeexplore.ieee.org/abstract/document/5276897">A new method of test data generation for branch coverage in software testing based on EPDG and genetic algorithm</a></li>
+  <li><a href="https://dl.acm.org/doi/abs/10.1016/j.jss.2008.06.051">Model-based performance analysis using block coverage measurements</a></li>
+  <li><a href="https://dl.acm.org/doi/pdf/10.1145/381788.316166">Efficient Coverage Testing Using Global Dominator Graphs </a></li>
+  <li><a href="https://kluedo.ub.rptu.de/frontdoor/deliver/index/docId/6410/file/_benkhadra-dissertation.pdf">Techniques For Efficient Binary-Level Coverage Analysis</a></li>
+  <li><a href="https://personal.utdallas.edu/~ewong/SE6367/03-Lecture/10-Hira-01.pdf">Dominators, Super Blocks, and Program Coverage</a></li>
+</ol>
+
+<p>I also highly recommend to watch and read following resources to have a solid understanding discussed topics (BB, Edge, Path coverage,…).</p>
+
+<ol>
+  <li><a href="https://clang.llvm.org/docs/SanitizerCoverage.html">SanitizerCoverage</a></li>
+  <li><a href="https://h0mbre.github.io/Fuzzing-Like-A-Caveman-5/">Fuzzing Like A Caveman</a></li>
+  <li><a href="https://lcamtuf.coredump.cx/afl/technical_details.txt">AFL technical paper</a></li>
+  <li><a href="https://dl.acm.org/doi/pdf/10.1145/3678722.3685537">Understanding and Improving Coverage Tracking with AFL++</a></li>
+  <li><a href="https://www.youtube.com/watch?v=hNVV6sNeJyQ">Knowing the UnFuzzed and Finding Bugs with Coverage Analysis - Mark Griffin (Shmoocon 2020)</a></li>
+  <li><a href="https://dl.acm.org/doi/10.1145/3320269.3384736">PathAFL: Path-Coverage Assisted Fuzzing</a></li>
+  <li><a href="https://www.sciencedirect.com/science/article/pii/S0950584924001873?via%3Dihub">ENZZ: Effective N-gram coverage assisted fuzzing with nearest neighboring branch estimation</a></li>
+  <li><a href="https://www.ndss-symposium.org/ndss-paper/predictive-context-sensitive-fuzzing/">Predictive Context-sensitive Fuzzing</a></li>
+  <li><a href="https://lafintel.wordpress.com/">lafintel</a></li>
+  <li><a href="https://www.youtube.com/watch?v=CjGGtbF3oNs">Making Software Dumberer</a> by Tavis Ormandy. despite being 14 years old, it remains the best and most comprehensive presentation on fuzzing.</li>
+  <li><a href="https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html">Compare coverage for AFL++ QEMU</a></li>
+  <li><a href="https://www.usenix.org/system/files/sec20spring_gan_prepub.pdf">Data Flow Sensitive Fuzzing</a></li>
+  <li><a href="https://groups.google.com/g/afl-users/c/D_M683KaQkg">Circumventing Fuzzing Roadblocks</a></li>
+  <li><a href="https://github.com/googleprojectzero/CompareCoverage">Mateusz Jurczyk’s CompareCoverage</a></li>
+  <li><a href="https://github.com/HexHive/datAFLow?tab=readme-ov-file">datAFLow</a> and its <a href="https://www.ndss-symposium.org/wp-content/uploads/fuzzing2022_23001_paper.pdf">paper</a> and <a href="https://www.youtube.com/watch?v=XsvPrsk1x5U">video</a></li>
+  <li><a href="https://www.youtube.com/watch?v=yezHZuDCBho">Brandon Falk, Advanced Fuzzing: Compare shattering</a></li>
+  <li><a href="https://www.usenix.org/system/files/raid2019-wang-jinghan.pdf">Be Sensitive and Collaborative: Analyzing Impact of Coverage Metrics in Greybox Fuzzing</a></li>
+  <li><a href="https://qingkaishi.github.io/public_pdfs/SP22.pdf">BEACON : Directed Grey-Box Fuzzing with Provable Path Pruning</a></li>
+  <li><a href="https://acmccs.github.io/papers/p2329-bohmeAemb.pdf">Directed Greybox Fuzzing</a></li>
+  <li><a href="https://www.ndss-symposium.org/wp-content/uploads/fuzzing2022_23001_paper.pdf">Registered Report: DATAFLOW Towards a Data-Flow-Guided Fuzzer</a></li>
+</ol>
+
+<p>You can also find numerous valuable articles in <a href="https://wcventure.github.io/FuzzingPaper/">https://wcventure.github.io/FuzzingPaper</a></p>
+
+  </div><a class="u-url" href="/fuzzing/2024/11/08/Pishi.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">My interesting researches</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">My interesting researches</li><li><a class="u-email" href="mailto:f at gmail.com">f at gmail.com</a></li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">R00tkitSMM</span></a></li><li><a href="https://www.twitter.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#twitter"></use></svg> <span class="username">R00tkitSMM</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p>I share what I find interesting here..</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

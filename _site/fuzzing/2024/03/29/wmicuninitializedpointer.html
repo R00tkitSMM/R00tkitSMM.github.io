@@ -4,22 +4,22 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
 <title>CVE-2016-0040 Story of Uninitialized Pointer in Windows Kernel | My interesting researches</title>
-<meta name="generator" content="Jekyll v3.9.0" />
+<meta name="generator" content="Jekyll v3.9.5" />
 <meta property="og:title" content="CVE-2016-0040 Story of Uninitialized Pointer in Windows Kernel" />
 <meta property="og:locale" content="en_US" />
 <meta name="description" content="Update:" />
 <meta property="og:description" content="Update:" />
-<link rel="canonical" href="http://localhost:4000/fuzzing/2024/03/29/wmicuninitializedpointer.html" />
-<meta property="og:url" content="http://localhost:4000/fuzzing/2024/03/29/wmicuninitializedpointer.html" />
+<link rel="canonical" href="http://0.0.0.0:4000/fuzzing/2024/03/29/wmicuninitializedpointer.html" />
+<meta property="og:url" content="http://0.0.0.0:4000/fuzzing/2024/03/29/wmicuninitializedpointer.html" />
 <meta property="og:site_name" content="My interesting researches" />
 <meta property="og:type" content="article" />
-<meta property="article:published_time" content="2024-03-29T01:01:59+01:00" />
+<meta property="article:published_time" content="2024-03-29T09:01:59+09:00" />
 <meta name="twitter:card" content="summary" />
 <meta property="twitter:title" content="CVE-2016-0040 Story of Uninitialized Pointer in Windows Kernel" />
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-03-29T01:01:59+01:00","datePublished":"2024-03-29T01:01:59+01:00","description":"Update:","headline":"CVE-2016-0040 Story of Uninitialized Pointer in Windows Kernel","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/fuzzing/2024/03/29/wmicuninitializedpointer.html"},"url":"http://localhost:4000/fuzzing/2024/03/29/wmicuninitializedpointer.html"}</script>
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-03-29T09:01:59+09:00","datePublished":"2024-03-29T09:01:59+09:00","description":"Update:","headline":"CVE-2016-0040 Story of Uninitialized Pointer in Windows Kernel","mainEntityOfPage":{"@type":"WebPage","@id":"http://0.0.0.0:4000/fuzzing/2024/03/29/wmicuninitializedpointer.html"},"url":"http://0.0.0.0:4000/fuzzing/2024/03/29/wmicuninitializedpointer.html"}</script>
 <!-- End Jekyll SEO tag -->
-<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="My interesting researches" /></head>
+<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://0.0.0.0:4000/feed.xml" title="My interesting researches" /></head>
 <body><header class="site-header" role="banner">
 
   <div class="wrapper"><a class="site-title" rel="author" href="/">My interesting researches</a><nav class="site-nav">
@@ -42,7 +42,7 @@
   <header class="post-header">
     <h1 class="post-title p-name" itemprop="name headline">CVE-2016-0040 Story of Uninitialized Pointer in Windows Kernel</h1>
     <p class="post-meta">
-      <time class="dt-published" datetime="2024-03-29T01:01:59+01:00" itemprop="datePublished">Mar 29, 2024
+      <time class="dt-published" datetime="2024-03-29T09:01:59+09:00" itemprop="datePublished">Mar 29, 2024
       </time></p>
   </header>
 
@@ -72,9 +72,9 @@ you can read their story in <a href="https://msrc.microsoft.com/blog/2017/06/tal
 
 <p>Here’s a description of the bug:</p>
 
-<p>For handling some WMI functions, Windows NT creates a named device called <mark>WMIDataDevice</mark>.</p>
+<p>For handling some WMI functions, Windows NT creates a named device called <code class="language-plaintext highlighter-rouge">WMIDataDevice</code>.</p>
 
-<p>This device is accessible from user mode with any permission (you can check it with WinObj). WMIDataDevice handles some IOCTLs, with the <mark>WmipReceiveNotifications</mark> function responsible for the <mark>IOCTL_WMI_ENUMERATE_GUIDS IOCTL</mark>. Based on the first DWORD of <mark>Irp-&gt;AssociatedIrp.SystemBuffer</mark>, WmipReceiveNotifications decides whether to use the <mark>stack</mark> or <mark>kernel pool</mark> as a buffer for storing data/pointers. If the first DWORD is less than or equal to 0x10, the stack is selected as the buffer.</p>
+<p>This device is accessible from user mode with any permission (you can check it with WinObj). WMIDataDevice handles some IOCTLs, with the <code class="language-plaintext highlighter-rouge">WmipReceiveNotifications</code> function responsible for the <code class="language-plaintext highlighter-rouge">IOCTL_WMI_ENUMERATE_GUIDS IOCTL</code>. Based on the first DWORD of <code class="language-plaintext highlighter-rouge">Irp-&gt;AssociatedIrp.SystemBuffer</code>, WmipReceiveNotifications decides whether to use the <code class="language-plaintext highlighter-rouge">stack</code> or <code class="language-plaintext highlighter-rouge">kernel pool</code> as a buffer for storing data/pointers. If the first DWORD is less than or equal to 0x10, the stack is selected as the buffer.</p>
 
 <p>There’s another important usage of the mentioned DWORD. WmipReceiveNotifications uses this DWORD as a counter for looping and initializing the local buffer. So, if we put 0 in the first DWORD of Irp-&gt;AssociatedIrp.SystemBuffer from user mode, the function selects the stack as the buffer. As mentioned earlier, this buffer is initiated in a loop. In this case, since we passed 0, the function skips loop execution, leaving the stack buffer uninitialized.</p>
 
@@ -232,7 +232,7 @@ CTL_CODE(FILE_DEVICE_UNKNOWN, WmiEnumerateGuidList, METHOD_BUFFERED, FILE_READ_A
 <p>in order to exploit this vulnerablity we have to spary kernel stack memory, after talking with Mateusz Jurczyk he told me about 
 <a href="https://j00ru.vexillium.org/2011/05/windows-kernel-stack-spraying-techniques/">using nt!NtMapUserPhysicalPages an excellent technique to Spraying Kernel Stack memory</a></p>
 
-<p>with help of above method I managed to exploit this vulnerablity and I had a plan to participate to <mark>Pwn2Own</mark> in windows kernel catagorty, but Microsoft spotted my vulnerablity with a simple miskate I did by tweeting about it.</p>
+<p>with help of above method I managed to exploit this vulnerablity and I had a plan to participate to <code class="language-plaintext highlighter-rouge">Pwn2Own</code> in windows kernel catagorty, but Microsoft spotted my vulnerablity with a simple miskate I did by tweeting about it.</p>
 
 
   </div><a class="u-url" href="/fuzzing/2024/03/29/wmicuninitializedpointer.html" hidden></a>
@@ -249,7 +249,7 @@ CTL_CODE(FILE_DEVICE_UNKNOWN, WmiEnumerateGuidList, METHOD_BUFFERED, FILE_READ_A
     <div class="footer-col-wrapper">
       <div class="footer-col footer-col-1">
         <ul class="contact-list">
-          <li class="p-name">My interesting researches</li><li><a class="u-email" href="mailto:firozimaysam at gmail.com">firozimaysam at gmail.com</a></li></ul>
+          <li class="p-name">My interesting researches</li><li><a class="u-email" href="mailto:f at gmail.com">f at gmail.com</a></li></ul>
       </div>
 
       <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">R00tkitSMM</span></a></li><li><a href="https://www.twitter.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#twitter"></use></svg> <span class="username">R00tkitSMM</span></a></li></ul>

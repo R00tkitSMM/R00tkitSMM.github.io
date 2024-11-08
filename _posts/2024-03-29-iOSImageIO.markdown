@@ -7,9 +7,9 @@ categories: fuzzing
 
 ImageIO is Apple's Framework that handles image parsing, which exposes 0click attack surface
 
-Months after reading [this blog post from Google Project Zero](https://googleprojectzero.blogspot.com/2020/04/fuzzing-imageio.html) about fuzzing ImageIO, I used LLDB to examine the testHeader functions, it turned out there are three new <mark>testHeader</mark> functions for different file formats.
+Months after reading [this blog post from Google Project Zero](https://googleprojectzero.blogspot.com/2020/04/fuzzing-imageio.html) about fuzzing ImageIO, I used LLDB to examine the testHeader functions, it turned out there are three new `testHeader` functions for different file formats.
 
-such as <mark>KTX2</mark> and <mark>WebP</mark> and <mark>ETC</mark>, so because they were fairly new I thought maybe they have not been fuzzed by Project Zero.
+such as `KTX2` and `WebP` and `ETC`, so because they were fairly new I thought maybe they have not been fuzzed by Project Zero.
 
 {% highlight shell %}
 1.30: where = ImageIO`IIO_Reader_KTX2::testHeader(unsigned char const*, unsigned long, __CFString const*), address = 0x00007ff8134cecc2, resolved, hit count = 5 
@@ -23,16 +23,16 @@ KTX2 is a relatively new specification introduced after the Project Zero fuzzing
 
 Although WebP has not been fuzzed by Project Zero, it is fuzzed with Google OSS-Fuzz. So I decided not to compete with Google's fuzzer in this regard.
 
-Another important issue I noticed was that in the Project Zero's blog, ImageIO was using <mark>OpenEXR</mark>, but in my test, ImageIO was using Apple's closed-source new implementation of EXR in <mark>libAppleEXR.dylib</mark>. Therefore, I decided to fuzz these two file formats, EXR and KTX2.
+Another important issue I noticed was that in the Project Zero's blog, ImageIO was using `OpenEXR`, but in my test, ImageIO was using Apple's closed-source new implementation of EXR in `libAppleEXR.dylib`. Therefore, I decided to fuzz these two file formats, EXR and KTX2.
 
-the Samuel Groß has modifed Honggfuzz to have a binary Coverage-guided fuzzing. but I ported Project Zero's harness to [Jackalope fuzzer](https://github.com/googleprojectzero/Jackalope) (awesome project thanks to Ivan Fratric), also I used  <mark>initWithData</mark> method of NSImage and in-memory fuzzing option of Jackalope to make the fuzzing faster. 
+the Samuel Groß has modifed Honggfuzz to have a binary Coverage-guided fuzzing. but I ported Project Zero's harness to [Jackalope fuzzer](https://github.com/googleprojectzero/Jackalope) (awesome project thanks to Ivan Fratric), also I used  `initWithData` method of NSImage and in-memory fuzzing option of Jackalope to make the fuzzing faster. 
 
 I managed to find lots of KTX2 sample files in the following pages:
 - [https://github.com/donmccurdy/KTX-Parse/tree/main/test/data/reference](https://github.com/donmccurdy/KTX-Parse/tree/main/test/data/reference)
 - [https://github.com/KhronosGroup/KTX-Software](https://github.com/KhronosGroup/KTX-Software)
 
 
-you can also use <mark>DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib</mark> to increase the change of finding more bugs.  
+you can also use `DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib` to increase the change of finding more bugs.  
 
 My fuzzing effort found several vulnerabilities, you can see them in my [CVEs page](https://r00tkitsmm.github.io/fuzzing/2024/03/27/CVEs.html)
 

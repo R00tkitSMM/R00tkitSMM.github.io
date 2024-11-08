@@ -4,22 +4,22 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
 <title>ImageIO, the infamous iOS Zero Click Attack Vector. | My interesting researches</title>
-<meta name="generator" content="Jekyll v3.9.0" />
+<meta name="generator" content="Jekyll v3.9.5" />
 <meta property="og:title" content="ImageIO, the infamous iOS Zero Click Attack Vector." />
 <meta property="og:locale" content="en_US" />
 <meta name="description" content="ImageIO is Apple’s Framework that handles image parsing, which exposes 0click attack surface" />
 <meta property="og:description" content="ImageIO is Apple’s Framework that handles image parsing, which exposes 0click attack surface" />
-<link rel="canonical" href="http://localhost:4000/fuzzing/2024/03/29/iOSImageIO.html" />
-<meta property="og:url" content="http://localhost:4000/fuzzing/2024/03/29/iOSImageIO.html" />
+<link rel="canonical" href="http://0.0.0.0:4000/fuzzing/2024/03/29/iOSImageIO.html" />
+<meta property="og:url" content="http://0.0.0.0:4000/fuzzing/2024/03/29/iOSImageIO.html" />
 <meta property="og:site_name" content="My interesting researches" />
 <meta property="og:type" content="article" />
-<meta property="article:published_time" content="2024-03-29T10:27:59+01:00" />
+<meta property="article:published_time" content="2024-03-29T18:27:59+09:00" />
 <meta name="twitter:card" content="summary" />
 <meta property="twitter:title" content="ImageIO, the infamous iOS Zero Click Attack Vector." />
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-03-29T10:27:59+01:00","datePublished":"2024-03-29T10:27:59+01:00","description":"ImageIO is Apple’s Framework that handles image parsing, which exposes 0click attack surface","headline":"ImageIO, the infamous iOS Zero Click Attack Vector.","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/fuzzing/2024/03/29/iOSImageIO.html"},"url":"http://localhost:4000/fuzzing/2024/03/29/iOSImageIO.html"}</script>
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-03-29T18:27:59+09:00","datePublished":"2024-03-29T18:27:59+09:00","description":"ImageIO is Apple’s Framework that handles image parsing, which exposes 0click attack surface","headline":"ImageIO, the infamous iOS Zero Click Attack Vector.","mainEntityOfPage":{"@type":"WebPage","@id":"http://0.0.0.0:4000/fuzzing/2024/03/29/iOSImageIO.html"},"url":"http://0.0.0.0:4000/fuzzing/2024/03/29/iOSImageIO.html"}</script>
 <!-- End Jekyll SEO tag -->
-<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="My interesting researches" /></head>
+<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://0.0.0.0:4000/feed.xml" title="My interesting researches" /></head>
 <body><header class="site-header" role="banner">
 
   <div class="wrapper"><a class="site-title" rel="author" href="/">My interesting researches</a><nav class="site-nav">
@@ -42,16 +42,16 @@
   <header class="post-header">
     <h1 class="post-title p-name" itemprop="name headline">ImageIO, the infamous iOS Zero Click Attack Vector.</h1>
     <p class="post-meta">
-      <time class="dt-published" datetime="2024-03-29T10:27:59+01:00" itemprop="datePublished">Mar 29, 2024
+      <time class="dt-published" datetime="2024-03-29T18:27:59+09:00" itemprop="datePublished">Mar 29, 2024
       </time></p>
   </header>
 
   <div class="post-content e-content" itemprop="articleBody">
     <p>ImageIO is Apple’s Framework that handles image parsing, which exposes 0click attack surface</p>
 
-<p>Months after reading <a href="https://googleprojectzero.blogspot.com/2020/04/fuzzing-imageio.html">this blog post from Google Project Zero</a> about fuzzing ImageIO, I used LLDB to examine the testHeader functions, it turned out there are three new <mark>testHeader</mark> functions for different file formats.</p>
+<p>Months after reading <a href="https://googleprojectzero.blogspot.com/2020/04/fuzzing-imageio.html">this blog post from Google Project Zero</a> about fuzzing ImageIO, I used LLDB to examine the testHeader functions, it turned out there are three new <code class="language-plaintext highlighter-rouge">testHeader</code> functions for different file formats.</p>
 
-<p>such as <mark>KTX2</mark> and <mark>WebP</mark> and <mark>ETC</mark>, so because they were fairly new I thought maybe they have not been fuzzed by Project Zero.</p>
+<p>such as <code class="language-plaintext highlighter-rouge">KTX2</code> and <code class="language-plaintext highlighter-rouge">WebP</code> and <code class="language-plaintext highlighter-rouge">ETC</code>, so because they were fairly new I thought maybe they have not been fuzzed by Project Zero.</p>
 
 <figure class="highlight"><pre><code class="language-shell" data-lang="shell">1.30: where <span class="o">=</span> ImageIO<span class="sb">`</span>IIO_Reader_KTX2::testHeader<span class="o">(</span>unsigned char const<span class="k">*</span>, unsigned long, __CFString const<span class="k">*</span><span class="o">)</span>, address <span class="o">=</span> 0x00007ff8134cecc2, resolved, hit count <span class="o">=</span> 5 
 1.26: where <span class="o">=</span> ImageIO<span class="sb">`</span>IIO_Reader_WebP::testHeader<span class="o">(</span>unsigned char const<span class="k">*</span>, unsigned long, __CFString const<span class="k">*</span><span class="o">)</span>, address <span class="o">=</span> 0x00007ff81341f368, resolved, hit count <span class="o">=</span> 0 
@@ -61,9 +61,9 @@
 
 <p>Although WebP has not been fuzzed by Project Zero, it is fuzzed with Google OSS-Fuzz. So I decided not to compete with Google’s fuzzer in this regard.</p>
 
-<p>Another important issue I noticed was that in the Project Zero’s blog, ImageIO was using <mark>OpenEXR</mark>, but in my test, ImageIO was using Apple’s closed-source new implementation of EXR in <mark>libAppleEXR.dylib</mark>. Therefore, I decided to fuzz these two file formats, EXR and KTX2.</p>
+<p>Another important issue I noticed was that in the Project Zero’s blog, ImageIO was using <code class="language-plaintext highlighter-rouge">OpenEXR</code>, but in my test, ImageIO was using Apple’s closed-source new implementation of EXR in <code class="language-plaintext highlighter-rouge">libAppleEXR.dylib</code>. Therefore, I decided to fuzz these two file formats, EXR and KTX2.</p>
 
-<p>the Samuel Groß has modifed Honggfuzz to have a binary Coverage-guided fuzzing. but I ported Project Zero’s harness to <a href="https://github.com/googleprojectzero/Jackalope">Jackalope fuzzer</a> (awesome project thanks to Ivan Fratric), also I used  <mark>initWithData</mark> method of NSImage and in-memory fuzzing option of Jackalope to make the fuzzing faster.</p>
+<p>the Samuel Groß has modifed Honggfuzz to have a binary Coverage-guided fuzzing. but I ported Project Zero’s harness to <a href="https://github.com/googleprojectzero/Jackalope">Jackalope fuzzer</a> (awesome project thanks to Ivan Fratric), also I used  <code class="language-plaintext highlighter-rouge">initWithData</code> method of NSImage and in-memory fuzzing option of Jackalope to make the fuzzing faster.</p>
 
 <p>I managed to find lots of KTX2 sample files in the following pages:</p>
 <ul>
@@ -71,7 +71,7 @@
   <li><a href="https://github.com/KhronosGroup/KTX-Software">https://github.com/KhronosGroup/KTX-Software</a></li>
 </ul>
 
-<p>you can also use <mark>DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib</mark> to increase the change of finding more bugs.</p>
+<p>you can also use <code class="language-plaintext highlighter-rouge">DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib</code> to increase the change of finding more bugs.</p>
 
 <p>My fuzzing effort found several vulnerabilities, you can see them in my <a href="https://r00tkitsmm.github.io/fuzzing/2024/03/27/CVEs.html">CVEs page</a></p>
 
@@ -192,7 +192,7 @@
     <div class="footer-col-wrapper">
       <div class="footer-col footer-col-1">
         <ul class="contact-list">
-          <li class="p-name">My interesting researches</li><li><a class="u-email" href="mailto:firozimaysam at gmail.com">firozimaysam at gmail.com</a></li></ul>
+          <li class="p-name">My interesting researches</li><li><a class="u-email" href="mailto:f at gmail.com">f at gmail.com</a></li></ul>
       </div>
 
       <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">R00tkitSMM</span></a></li><li><a href="https://www.twitter.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#twitter"></use></svg> <span class="username">R00tkitSMM</span></a></li></ul>

@@ -4,22 +4,22 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
 <title>Structure-Aware linux kernel Fuzzing with libFuzzer | My interesting researches</title>
-<meta name="generator" content="Jekyll v3.9.0" />
+<meta name="generator" content="Jekyll v3.9.5" />
 <meta property="og:title" content="Structure-Aware linux kernel Fuzzing with libFuzzer" />
 <meta property="og:locale" content="en_US" />
 <meta name="description" content="Hi everyone! I’m really happy to tell you about my experimenting adventure today. I decided to experiment with KCOV and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system." />
 <meta property="og:description" content="Hi everyone! I’m really happy to tell you about my experimenting adventure today. I decided to experiment with KCOV and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system." />
-<link rel="canonical" href="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html" />
-<meta property="og:url" content="http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html" />
+<link rel="canonical" href="http://0.0.0.0:4000/fuzzing/2024/03/28/libffuzzerkernel.html" />
+<meta property="og:url" content="http://0.0.0.0:4000/fuzzing/2024/03/28/libffuzzerkernel.html" />
 <meta property="og:site_name" content="My interesting researches" />
 <meta property="og:type" content="article" />
-<meta property="article:published_time" content="2024-03-27T22:27:59+01:00" />
+<meta property="article:published_time" content="2024-03-28T06:27:59+09:00" />
 <meta name="twitter:card" content="summary" />
 <meta property="twitter:title" content="Structure-Aware linux kernel Fuzzing with libFuzzer" />
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-03-27T22:27:59+01:00","datePublished":"2024-03-27T22:27:59+01:00","description":"Hi everyone! I’m really happy to tell you about my experimenting adventure today. I decided to experiment with KCOV and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.","headline":"Structure-Aware linux kernel Fuzzing with libFuzzer","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html"},"url":"http://localhost:4000/fuzzing/2024/03/27/libffuzzerkernel.html"}</script>
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-03-28T06:27:59+09:00","datePublished":"2024-03-28T06:27:59+09:00","description":"Hi everyone! I’m really happy to tell you about my experimenting adventure today. I decided to experiment with KCOV and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.","headline":"Structure-Aware linux kernel Fuzzing with libFuzzer","mainEntityOfPage":{"@type":"WebPage","@id":"http://0.0.0.0:4000/fuzzing/2024/03/28/libffuzzerkernel.html"},"url":"http://0.0.0.0:4000/fuzzing/2024/03/28/libffuzzerkernel.html"}</script>
 <!-- End Jekyll SEO tag -->
-<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="My interesting researches" /></head>
+<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://0.0.0.0:4000/feed.xml" title="My interesting researches" /></head>
 <body><header class="site-header" role="banner">
 
   <div class="wrapper"><a class="site-title" rel="author" href="/">My interesting researches</a><nav class="site-nav">
@@ -42,13 +42,13 @@
   <header class="post-header">
     <h1 class="post-title p-name" itemprop="name headline">Structure-Aware linux kernel Fuzzing with libFuzzer</h1>
     <p class="post-meta">
-      <time class="dt-published" datetime="2024-03-27T22:27:59+01:00" itemprop="datePublished">Mar 27, 2024
+      <time class="dt-published" datetime="2024-03-28T06:27:59+09:00" itemprop="datePublished">Mar 28, 2024
       </time></p>
   </header>
 
   <div class="post-content e-content" itemprop="articleBody">
     <p>Hi everyone! I’m really happy to tell you about my experimenting adventure today.
-I decided to experiment with <mark>KCOV</mark> and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.</p>
+I decided to experiment with <code class="language-plaintext highlighter-rouge">KCOV</code> and see how I can hook it into libfuzzer and boot the kernel without spending too much on building a root file system.</p>
 
 <p>First of all why not just using syzkaller? because why not? this may cover more State space.</p>
 
@@ -67,13 +67,13 @@ clone virtme and linux kernel</p>
 git clone <span class="nt">--depth</span> 1 https://github.com/amluto/virtme.git
 <span class="nb">cd </span>linux</code></pre></figure>
 
-<p>you have to enable kcov for all targets with <mark>KCOV_INSTRUMENT_ALL</mark> or specific makefile.
+<p>you have to enable kcov for all targets with <code class="language-plaintext highlighter-rouge">KCOV_INSTRUMENT_ALL</code> or specific makefile.
 Enable KCOV in all “fs” subdirectory:</p>
 
 <figure class="highlight"><pre><code class="language-shell" data-lang="shell">find <span class="s2">"fs"</span> <span class="nt">-name</span> Makefile <span class="se">\</span>
     | xargs <span class="nt">-L1</span> <span class="nt">-I</span> <span class="o">{}</span> bash <span class="nt">-c</span> <span class="s1">'echo "KCOV_INSTRUMENT := y" &gt;&gt; {}'</span></code></pre></figure>
 
-<p>then build linux kernel with <mark>KCOV</mark> and <mark>KASAN</mark> and some other flags needed by virtme</p>
+<p>then build linux kernel with <code class="language-plaintext highlighter-rouge">KCOV</code> and <code class="language-plaintext highlighter-rouge">KASAN</code> and some other flags needed by virtme</p>
 
 <figure class="highlight"><pre><code class="language-shell" data-lang="shell">../virtme/virtme-configkernel  <span class="nt">--defconfig</span>
  
@@ -105,7 +105,7 @@ Enable KCOV in all “fs” subdirectory:</p>
     <span class="nt">-e</span> UBSAN <span class="se">\</span>
     <span class="nt">-d</span> RANDOMIZE_BASE</code></pre></figure>
 
-<p>in order to provied kenrnel code coverage to libfuzzer we can use <mark>__libfuzzer_extra_counters</mark>, you can see a good example  in <a href="https://github.com/google/syzkaller/blob/master/tools/kcovfuzzer/kcovfuzzer.c">syzkaller</a>
+<p>in order to provied kenrnel code coverage to libfuzzer we can use <code class="language-plaintext highlighter-rouge">__libfuzzer_extra_counters</code>, you can see a good example  in <a href="https://github.com/google/syzkaller/blob/master/tools/kcovfuzzer/kcovfuzzer.c">syzkaller</a>
 and its documentation in <a href="https://docs.kernel.org/dev-tools/kcov.html">kernel website</a></p>
 
 <p>almost every kernel attack vector is Stateful APIs. you can’t just feed raw buffer to it. we have to use Structure-Aware Fuzzing, I deciede to use libprotobuf-mutator, which has show is very powerfull tool.</p>
@@ -160,26 +160,29 @@ Protobufs provide a convenient way to serialize structured data, and LPM provide
 </span>
 <span class="n">__attribute__</span><span class="p">((</span><span class="n">section</span><span class="p">(</span><span class="s">"__libfuzzer_extra_counters"</span><span class="p">)))</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">libfuzzer_coverage</span><span class="p">[</span><span class="mi">32</span> <span class="o">&lt;&lt;</span> <span class="mi">10</span><span class="p">];</span>
 <span class="kt">uint64_t</span><span class="o">*</span> <span class="n">kcov_data</span><span class="p">;</span>
+<span class="kt">int</span> <span class="n">kcov</span><span class="p">;</span>
 <span class="k">extern</span> <span class="s">"C"</span> <span class="kt">int</span> <span class="nf">LLVMFuzzerInitialize</span><span class="p">(</span><span class="kt">int</span> <span class="o">*</span><span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">***</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
 	
-	<span class="kt">int</span> <span class="n">kcov</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="s">"/sys/kernel/debug/kcov"</span><span class="p">,</span> <span class="n">O_RDWR</span><span class="p">);</span>
-	<span class="k">if</span> <span class="p">(</span><span class="n">kcov</span> <span class="o">&lt;</span><span class="n">mark</span><span class="o">&gt;-</span><span class="mi">1</span><span class="p">)</span>
+	<span class="n">kcov</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="s">"/sys/kernel/debug/kcov"</span><span class="p">,</span> <span class="n">O_RDWR</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">kcov</span> <span class="err">`</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 		<span class="n">fail</span><span class="p">(</span><span class="s">"open of /sys/kernel/debug/kcov failed"</span><span class="p">);</span>
 	<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">kcov</span><span class="p">,</span> <span class="n">KCOV_INIT_TRACE64</span><span class="p">,</span> <span class="n">KCOV_COVER_SIZE</span><span class="p">))</span>
 		<span class="n">fail</span><span class="p">(</span><span class="s">"init trace write failed"</span><span class="p">);</span>
 	<span class="n">kcov_data</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="o">*</span><span class="p">)</span><span class="n">mmap</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">KCOV_COVER_SIZE</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">kcov_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
 				    <span class="n">PROT_READ</span> <span class="o">|</span> <span class="n">PROT_WRITE</span><span class="p">,</span> <span class="n">MAP_SHARED</span><span class="p">,</span> <span class="n">kcov</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
-	<span class="k">if</span> <span class="p">(</span><span class="n">kcov_data</span> <span class="o">&lt;</span><span class="n">mark</span><span class="o">&gt;</span><span class="n">MAP_FAILED</span><span class="p">)</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">kcov_data</span> <span class="err">`</span><span class="n">MAP_FAILED</span><span class="p">)</span>
 		<span class="n">fail</span><span class="p">(</span><span class="s">"mmap failed"</span><span class="p">);</span>
 	<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">kcov</span><span class="p">,</span> <span class="n">KCOV_ENABLE</span><span class="p">,</span> <span class="n">KCOV_TRACE_PC</span><span class="p">))</span>
 		<span class="n">fail</span><span class="p">(</span><span class="s">"enable write trace failed"</span><span class="p">);</span>
-	<span class="n">close</span><span class="p">(</span><span class="n">kcov</span><span class="p">);</span>
+	<span class="c1">//close(kcov); // where to close this?</span>
 
  	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
 <span class="p">}</span>
 <span class="kt">void</span> <span class="n">kcov_start</span><span class="p">()</span>
 <span class="p">{</span>
 	<span class="n">__atomic_store_n</span><span class="p">(</span><span class="o">&amp;</span><span class="n">kcov_data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">__ATOMIC_RELAXED</span><span class="p">);</span>
+ 	 <span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">kcov</span><span class="p">,</span> <span class="n">KCOV_ENABLE</span><span class="p">,</span> <span class="n">KCOV_TRACE_PC</span><span class="p">))</span>
+             <span class="n">perror</span><span class="p">(</span><span class="s">"ioctl"</span><span class="p">),</span> <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
 <span class="p">}</span>
 <span class="kt">void</span> <span class="n">kcov_stop</span><span class="p">()</span>
 <span class="p">{</span>
@@ -190,6 +193,8 @@ Protobufs provide a convenient way to serialize structured data, and LPM provide
 		<span class="kt">uint64_t</span> <span class="n">pc</span> <span class="o">=</span> <span class="n">__atomic_load_n</span><span class="p">(</span><span class="o">&amp;</span><span class="n">kcov_data</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">__ATOMIC_RELAXED</span><span class="p">);</span>
 		<span class="n">libfuzzer_coverage</span><span class="p">[</span><span class="n">pc</span> <span class="o">%</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">libfuzzer_coverage</span><span class="p">)]</span><span class="o">++</span><span class="p">;</span>
 	<span class="p">}</span>
+ 	<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">kcov</span><span class="p">,</span> <span class="n">KCOV_DISABLE</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="n">perror</span><span class="p">(</span><span class="s">"ioctl"</span><span class="p">),</span> <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
 <span class="p">}</span>
 
 <span class="kt">void</span> <span class="n">fail</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">msg</span><span class="p">,</span> <span class="p">...)</span>
@@ -222,9 +227,9 @@ Protobufs provide a convenient way to serialize structured data, and LPM provide
 
 <p>The intriguing phase starts. If a kasan panics, libfuzzer lacks awareness and will dispose of the sample. Therefore, to preserve the triggering sample of the crash, we must inform libfuzzer about the kernel panic.</p>
 
-<p>Initially, I explored alternative methods to notify the fuzzer about the panic. However, I opted to simulate <mark>SIGSEGV</mark> and dispatch a signal to libfuzzer whenever a kasan panic occurs in the kernel. Upon receiving this signal, libfuzzer will preserve the sample and terminate.
+<p>Initially, I explored alternative methods to notify the fuzzer about the panic. However, I opted to simulate <code class="language-plaintext highlighter-rouge">SIGSEGV</code> and dispatch a signal to libfuzzer whenever a kasan panic occurs in the kernel. Upon receiving this signal, libfuzzer will preserve the sample and terminate.
 so we have to modify the linux kernel and build it once more.
-add <mark>send_sigsegv_to_process</mark> function to <mark>print_error_description</mark> in <mark>/mm/kasan/report.c</mark>.</p>
+add <code class="language-plaintext highlighter-rouge">send_sigsegv_to_process</code> function to <code class="language-plaintext highlighter-rouge">print_error_description</code> in <code class="language-plaintext highlighter-rouge">/mm/kasan/report.c</code>.</p>
 
 <p>make sure</p>
 <ul>
@@ -276,10 +281,10 @@ add <mark>send_sigsegv_to_process</mark> function to <mark>print_error_descripti
 <figure class="highlight"><pre><code class="language-shell" data-lang="shell"><span class="nb">cd </span>linux
  ../virtme/virtme-run <span class="nt">--kimg</span> <span class="nb">arch</span>/x86/boot/bzImage <span class="nt">--rwdir</span> ../testfuzz/ <span class="nt">--qemu-opts</span>  <span class="nt">-m</span> 2G <span class="nt">-smp</span> 2 <span class="nt">-enable-kvm</span></code></pre></figure>
 
-<p>The next step involves incorporating APIs and system calls into the proto file and ensuring they are included in the <mark>DEFINE_PROTO_FUZZER</mark>. This will enable the ability to fuzz additional subsystems within the Linux kernel.</p>
+<p>The next step involves incorporating APIs and system calls into the proto file and ensuring they are included in the <code class="language-plaintext highlighter-rouge">DEFINE_PROTO_FUZZER</code>. This will enable the ability to fuzz additional subsystems within the Linux kernel.</p>
 
 
-  </div><a class="u-url" href="/fuzzing/2024/03/27/libffuzzerkernel.html" hidden></a>
+  </div><a class="u-url" href="/fuzzing/2024/03/28/libffuzzerkernel.html" hidden></a>
 </article>
 
       </div>
@@ -293,7 +298,7 @@ add <mark>send_sigsegv_to_process</mark> function to <mark>print_error_descripti
     <div class="footer-col-wrapper">
       <div class="footer-col footer-col-1">
         <ul class="contact-list">
-          <li class="p-name">My interesting researches</li><li><a class="u-email" href="mailto:firozimaysam at gmail.com">firozimaysam at gmail.com</a></li></ul>
+          <li class="p-name">My interesting researches</li><li><a class="u-email" href="mailto:f at gmail.com">f at gmail.com</a></li></ul>
       </div>
 
       <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">R00tkitSMM</span></a></li><li><a href="https://www.twitter.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#twitter"></use></svg> <span class="username">R00tkitSMM</span></a></li></ul>

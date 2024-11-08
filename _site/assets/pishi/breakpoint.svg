@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="Layer_1" width="555" height="510" viewBox="0 0 555 510">
+  <defs>
+    <style>
+      .cls-1 { fill: #0091bd; }
+      .cls-2, .cls-3, .cls-4 { fill: #333e48; }
+      .cls-3 { font-family: Lato-Medium, Lato; font-size: 18px; font-weight: 500; }
+      .cls-4 { font-family: CourierNewPSMT, 'Courier New'; font-size: 14px; } /* Increased font size */
+      .cls-5 { stroke: #0091bd; }
+      .cls-5, .cls-6 { fill: none; stroke-miterlimit: 10; }
+      .cls-6 { stroke: #333e48; }
+      .cls-7 { stroke: #333e48; }
+    </style>
+  </defs>
+  <g>
+    <line class="cls-6" x1="210" y1="90" x2="210" y2="459.26" stroke-width="2" stroke="black"/>
+    <polygon class="cls-2" points="206.01 458.09 210 465 213.99 458.09 206.01 458.09" stroke-width="2" stroke="black"/>
+  </g>
+  <g>
+    <line class="cls-5" x1="430.07" y1="472.88" x2="215.69" y2="274.75" stroke-width="2" stroke="black"/>
+    <polygon class="cls-1" points="219.25 272.62 211.47 270.86 213.84 278.47 219.25 272.62" stroke-width="2" stroke="black"/>
+  </g>
+  <rect class="cls-6" x="135.65" y="30" width="150" height="60"/>
+  <text class="cls-3" transform="translate(157.63 55.84)">
+    <tspan x="0" y="0">Program flow</tspan>
+    <tspan x="0" y="21.6">in EL1(KEXT)</tspan>
+  </text>
+  <line class="cls-6" x1="195.65" y1="180" x2="225.65" y2="180"/>
+  <line class="cls-6" x1="195.65" y1="195" x2="225.65" y2="195"/>
+  <line class="cls-6" x1="195.65" y1="210" x2="225.65" y2="210"/>
+  <line class="cls-6" x1="195.65" y1="225" x2="225.65" y2="225"/>
+  <line class="cls-6" x1="195.65" y1="240" x2="225.65" y2="240"/>
+  <line class="cls-6" x1="195.65" y1="255" x2="225.65" y2="255"/>
+  <line class="cls-6" x1="195.65" y1="300" x2="225.65" y2="300"/>
+  <line class="cls-6" x1="195.65" y1="315" x2="225.65" y2="315"/>
+  <line class="cls-6" x1="195.65" y1="330" x2="225.65" y2="330"/>
+  <line class="cls-6" x1="195.65" y1="270" x2="225.65" y2="270"/>
+  <line class="cls-6" x1="195.65" y1="285" x2="225.65" y2="285"/>
+  <line class="cls-6" x1="195.65" y1="345" x2="225.65" y2="345"/>
+  <line class="cls-6" x1="195.65" y1="360" x2="225.65" y2="360"/>
+  <line class="cls-6" x1="195.65" y1="375" x2="225.65" y2="375"/>
+  <line class="cls-6" x1="195.65" y1="389.65" x2="225.65" y2="389.65"/>
+  <line class="cls-6" x1="195.65" y1="165" x2="225.65" y2="165"/>
+  <line class="cls-6" x1="195.65" y1="150" x2="225.65" y2="150"/>
+  <line class="cls-6" x1="195.65" y1="135" x2="225.65" y2="135"/>
+  <rect class="cls-6" x="30" y="240.27" width="150" height="60"/>
+  <text class="cls-3" transform="translate(65.87 266.11)">
+    <tspan x="0" y="0">BreakPoint</tspan>
+    <tspan x="13.26" y="21.6">occurs</tspan>
+  </text>
+  <line class="cls-6" x1="435" y1="240.28" x2="435" y2="60" stroke-width="2" stroke="black"/>
+  <g>
+    <line class="cls-6" x1="435" y1="300.28" x2="435" y2="474.26" stroke-width="2" stroke="black"/>
+    <polygon class="cls-2" points="431.01 473.09 435 480 438.99 473.09 431.01 473.09" stroke-width="2" stroke="black"/>
+  </g>
+  <rect class="cls-6" x="345" y="240" width="180" height="60.28"/>
+  <text class="cls-3" transform="translate(396.02 265.84)">
+    <tspan x="-32" y="0"> Coverage Collection</tspan>
+    <tspan x="7.75" y="21.6">EL2</tspan>
+  </text>
+  <g>
+    <line class="cls-5" x1="211.32" y1="268.67" x2="428.79" y2="68.04" stroke-width="2" stroke="black"/>
+    <polygon class="cls-1" points="430.64 71.76 433.01 64.15 425.23 65.9 430.64 71.76" stroke-width="2" stroke="black"/>
+  </g>
+  <line class="cls-6" x1="195" y1="405" x2="225" y2="405"/>
+  <line class="cls-6" x1="195" y1="420" x2="225" y2="420"/>
+  <line class="cls-6" x1="195" y1="120" x2="225" y2="120"/>
+  <line class="cls-6" x1="195" y1="105" x2="225" y2="105"/>
+  <text class="cls-10" transform="translate(285.58 180.27) rotate(-43.17)">
+    <tspan x="0" y="0">PC -&gt; ELR_EL2</tspan>
+  </text>
+  <text class="cls-10" transform="translate(300 220.87) rotate(-43.17)">
+    <tspan x="0" y="0">PSTATE -&gt; SPSR_EL2</tspan>
+  </text>
+  <text class="cls-10" transform="translate(270 360.28) rotate(43.14)">
+    <tspan x="0" y="0">SPSR_EL2 -&gt; PSTATE</tspan>
+  </text>
+  <text class="cls-10" transform="translate(309.08 338.96) rotate(43.14)">
+    <tspan x="0" y="0">ELR_EL2 -&gt; PC</tspan>
+  </text>
+</svg>

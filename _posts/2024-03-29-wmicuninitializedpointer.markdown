@@ -28,9 +28,9 @@ Microsoft patched one of the reported vulnerabilities in MS16-014. The vulnerabi
 
 Here's a description of the bug:
 
-For handling some WMI functions, Windows NT creates a named device called <mark>WMIDataDevice</mark>.
+For handling some WMI functions, Windows NT creates a named device called `WMIDataDevice`.
 
-This device is accessible from user mode with any permission (you can check it with WinObj). WMIDataDevice handles some IOCTLs, with the <mark>WmipReceiveNotifications</mark> function responsible for the <mark>IOCTL_WMI_ENUMERATE_GUIDS IOCTL</mark>. Based on the first DWORD of <mark>Irp->AssociatedIrp.SystemBuffer</mark>, WmipReceiveNotifications decides whether to use the <mark>stack</mark> or <mark>kernel pool</mark> as a buffer for storing data/pointers. If the first DWORD is less than or equal to 0x10, the stack is selected as the buffer.
+This device is accessible from user mode with any permission (you can check it with WinObj). WMIDataDevice handles some IOCTLs, with the `WmipReceiveNotifications` function responsible for the `IOCTL_WMI_ENUMERATE_GUIDS IOCTL`. Based on the first DWORD of `Irp->AssociatedIrp.SystemBuffer`, WmipReceiveNotifications decides whether to use the `stack` or `kernel pool` as a buffer for storing data/pointers. If the first DWORD is less than or equal to 0x10, the stack is selected as the buffer.
 
 There's another important usage of the mentioned DWORD. WmipReceiveNotifications uses this DWORD as a counter for looping and initializing the local buffer. So, if we put 0 in the first DWORD of Irp->AssociatedIrp.SystemBuffer from user mode, the function selects the stack as the buffer. As mentioned earlier, this buffer is initiated in a loop. In this case, since we passed 0, the function skips loop execution, leaving the stack buffer uninitialized.
 
@@ -197,7 +197,7 @@ void main() {
 in order to exploit this vulnerablity we have to spary kernel stack memory, after talking with Mateusz Jurczyk he told me about 
 [using nt!NtMapUserPhysicalPages an excellent technique to Spraying Kernel Stack memory](https://j00ru.vexillium.org/2011/05/windows-kernel-stack-spraying-techniques/) 
 
-with help of above method I managed to exploit this vulnerablity and I had a plan to participate to <mark>Pwn2Own</mark> in windows kernel catagorty, but Microsoft spotted my vulnerablity with a simple miskate I did by tweeting about it. 
+with help of above method I managed to exploit this vulnerablity and I had a plan to participate to `Pwn2Own` in windows kernel catagorty, but Microsoft spotted my vulnerablity with a simple miskate I did by tweeting about it. 
 
 [jekyll-docs]: https://jekyllrb.com/docs/home
 [jekyll-gh]:   https://github.com/jekyll/jekyll
