@@ -245,7 +245,7 @@ but we don't know where does our KEXT will be loaded. therefore we don’t know 
 
 At the same time I know something is wrong, we can’t just replace any random `xpacd` in target KEXT with a call to an imported function. as I explain in next lines.
 
-Calling imported functions is done through `__auth_stubs` and this stub will [clobber](https://en.wikipedia.org/wiki/Clobbering) `X16`, `X17` and `LR` registers.
+In Mach-O file format, Calling into imported functions is done through `__auth_stubs` and this stub will [clobber](https://en.wikipedia.org/wiki/Clobbering) `X16`, `X17` and `LR` registers.
 A clobbered register is a register that gets altered or "trashed" by inline assembly code.
 When using inline assembly, we need to tell the compiler which registers are changed by using [clobber arguments](https://gcc.gnu.org/onlinedocs/gcc/extensions-to-the-c-language-family/how-to-use-inline-assembly-language-in-c-code.html#clobbers-and-scratch-registers). This helps the compiler avoid [allocating](https://en.wikipedia.org/wiki/Register_allocation) those modified registers.
 {% highlight nasm %}
