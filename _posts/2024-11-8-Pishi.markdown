@@ -757,7 +757,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 As you see, each time libFuzzer finds a new BB, it increments `ft:`, i.e., the features described earlier.
 
 #### Mission accomplished! 
-At this point we have setup everything, we just need to instrument `com.apple.driver.AppleAVD` by some and enjoy our coverage-guided fuzzing of AppleAVD.\
+At this point we have setup everything, we just need to instrument `com.apple.driver.AppleAVD` and enjoy our coverage-guided fuzzing of AppleAVD.\
 is't this cool?
 {% highlight cpp %}
 LLVMFuzzerInitialize(int *argc, char ***argv)
