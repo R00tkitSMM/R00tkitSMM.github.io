@@ -5,7 +5,7 @@ date: 2024-11-8 1:1:1 +0100
 categories: fuzzing
 ---
 
-This blog post is the result of some weekend research, where I delved into Pishi, a static macOS kernel binary rewriting tool.
+This blog post is the result of some weekend research, where I delved into [Pishi](https://www.quora.com/What-does-Hapoo-%D9%87%D8%A7%D9%BE%D9%88-and-Pishi-%D9%BE%DB%8C%D8%B4%DB%8C-means-in-Persian), a static macOS kernel binary rewriting tool.
 During the weekdays, I focus on Linux kernel security at my job and would rather not investigate the Windows kernel again, which leaves macOS/iOS as the only remaining option.
 
 In this blog post I will try to explain everything as clearly as possible so that even those who are not familiar with fuzzing can enjoy and understand it. I'll break down the concepts, provide relatable examples, and resources, My goal is to make fuzzing approachable and interesting.
