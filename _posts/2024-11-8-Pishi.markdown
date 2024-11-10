@@ -530,7 +530,7 @@ Compare coverage is a method for simplifying complex comparisons in code into ea
 Imagine trying to guess a password. If each attempt results an access denied, it would take a long time to crack it. However, if you receive feedback for each character you guess, you can significantly speed up the process of finding the correct password.
 
 Compare coverage will change this comparison to the next [nested if statements](https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html).
-guessing one out of 0xffffffff possible numbers, narrowed down to 16 possible answers each time.
+guessing one out of 0xffffffff possible numbers, narrowed down to 256 possible answers each time.
 {% highlight cpp %}
 if (input == 0xabad1dea) {
   /* terribly buggy code */
