@@ -441,7 +441,7 @@ this instructions will do:
 8. Jump back to next instruction of the patched adddress.
 
 As shown in the following image, our `extra KEXT` will include all the necessary functions, such as `_sanitizer_cov_trace_pc`, along with a large amount of trampolines.\
-We can use directives `.rept .endr` to sprays memory(not for [exploitation](https://en.wikipedia.org/wiki/Heap_spraying) this time) with plenty of trampolines.
+We can use directives `.rept .endr` to spray memory(not for [exploitation](https://en.wikipedia.org/wiki/Heap_spraying) this time) with plenty of trampolines.
 [These directives](https://developer.arm.com/documentation/100068/0608/migrating-from-armasm-to-the-armclang-integrated-assembler/migration-of-armasm-macros-to-integrated-assembler-macros#:~:text=enclosed%20between%20a%20.-,rept%20and%20.,be%20used%20within%20a%20macro.) allow a sequence of instructions to be assembled repeatedly.
 
 
