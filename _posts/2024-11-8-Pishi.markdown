@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Pishi: Coverage guided macOS KEXT fuzzing."
+title: "Pishi Part 1: Coverage guided macOS KEXT fuzzing."
 date: 2024-11-8 1:1:1 +0100
 categories: fuzzing
 ---
