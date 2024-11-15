@@ -636,7 +636,7 @@ the question of whether an unconditional jump marks the end of a basic block is 
 <img src="/assets/pishi/31.png" width="300" style="display: block; margin: 0 auto">
 
 We also classify basic blocks that contain a single `unconditional jump` or `ret` along with the `bti` instruction as a single-sized basic block or thunks.
-`bti` or [branch target identification](https://en.wikipedia.org/wiki/Indirect_branch_tracking) instructions similatr to PAC are not part of the program's intended behavior; there are emited by compiler to protect against [Return-oriented programming](https://en.wikipedia.org/wiki/Return-oriented_programming).
+`bti` or [branch target identification](https://en.wikipedia.org/wiki/Indirect_branch_tracking) instructions similar to PAC are not part of the program's intended behavior; there are emited by compiler to protect against [Return-oriented programming](https://en.wikipedia.org/wiki/Return-oriented_programming).
 <img src="/assets/pishi/bti.png" width="300" style="display: block; margin: 0 auto">
 
 Furthermore `ldr` is relative instruction when its operand is a label.
