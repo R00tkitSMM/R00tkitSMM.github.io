@@ -436,7 +436,7 @@ this instructions will do:
 3. Move BB's ID( the address of the instrumented instruction) and KEXT's ID number as arguments of `_sanitizer_cov_trace_pc`. we will write correct number in these placeholders in instrumentation time.
 4. Call `_sanitizer_cov_trace_pc` to collect the coverage.
 5. Restore the registers with `_pop_regs`.
-6. Restore (LR).
+6. Restore the Link Register (LR).
 7. Execute original instruction. this step is the reason that each instrumentation point needs its own trampoline.
 8. Jump back to next instruction of the patched adddress.
 
