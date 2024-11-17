@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Ancient Win32k heap UAF detector. | My interesting researches</title>
+<meta name="generator" content="Jekyll v3.9.5" />
+<meta property="og:title" content="Ancient Win32k heap UAF detector." />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="This blog post is a reshare of a personal note I wrote 15 years ago, and I’m sharing it here for nostalgic reasons. fast forward to 2024, and we now have KASAN integrated into the Windows kernel." />
+<meta property="og:description" content="This blog post is a reshare of a personal note I wrote 15 years ago, and I’m sharing it here for nostalgic reasons. fast forward to 2024, and we now have KASAN integrated into the Windows kernel." />
+<link rel="canonical" href="http://0.0.0.0:4000/fuzzing/2024/11/17/win32k-heap.html" />
+<meta property="og:url" content="http://0.0.0.0:4000/fuzzing/2024/11/17/win32k-heap.html" />
+<meta property="og:site_name" content="My interesting researches" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-11-17T09:01:01+09:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Ancient Win32k heap UAF detector." />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2024-11-17T09:01:01+09:00","datePublished":"2024-11-17T09:01:01+09:00","description":"This blog post is a reshare of a personal note I wrote 15 years ago, and I’m sharing it here for nostalgic reasons. fast forward to 2024, and we now have KASAN integrated into the Windows kernel.","headline":"Ancient Win32k heap UAF detector.","mainEntityOfPage":{"@type":"WebPage","@id":"http://0.0.0.0:4000/fuzzing/2024/11/17/win32k-heap.html"},"url":"http://0.0.0.0:4000/fuzzing/2024/11/17/win32k-heap.html"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://0.0.0.0:4000/feed.xml" title="My interesting researches" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">My interesting researches</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/about/">About</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Ancient Win32k heap UAF detector.</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2024-11-17T09:01:01+09:00" itemprop="datePublished">Nov 17, 2024
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <p>This blog post is a reshare of a personal note I wrote 15 years ago, and I’m sharing it here for nostalgic reasons.
+fast forward to 2024, and we now have <a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/kasan">KASAN integrated into the Windows kernel</a>.</p>
+
+<h4 id="original-content">Original content:</h4>
+
+<p>In recent times, 0-day kernel vulnerabilities have become more valuable due to the limitations imposed by sandboxes. Every RCE exploit now requires an additional phase to bypass these restrictions in order to achieve full system access.</p>
+
+<p>Many local privilege escalation vulnerabilities are based on flaws in <code class="language-plaintext highlighter-rouge">Win32k</code>, particularly how it handles or uses objects. In most cases, <code class="language-plaintext highlighter-rouge">Win32k</code> uses freed memory, leading to use-after-free vulnerabilities.</p>
+
+<p>Win32k uses <code class="language-plaintext highlighter-rouge">HMAllocObject</code> to allocate memory for its objects, and the function uses different memory management subsystems based on the object type, either from the heap or from the kernel pool.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>int __stdcall HMAllocObject(int a1, PVOID Object, char a3, ULONG Size)
+{
+	....
+	....
+
+  if ( v5 &amp; 0x10 &amp;&amp; Object )
+  {
+    v7 = DesktopAlloc((int)Object, Size, ((unsigned __int8)a3 &lt;&lt; 16) | 5);
+    if ( !v7 )
+    {
+LABEL_28:
+      UserSetLastError(8);
+      return 0;
+    }
+    LockObjectAssignment(v7 + 12, Object);
+    *(_DWORD *)(v7 + 16) = v7;
+  }
+  else
+  {
+    if ( v5 &amp; 0x40 )
+    {
+      v8 = SharedAlloc(Size);
+    }
+    else
+    {
+      v9 = !Object &amp;&amp; v5 &amp; 0x20;
+      if ( !(v5 &amp; 8) || v9 )
+        v8 = Win32AllocPoolWithTagZInit(Size, dword_BF9F191C[v4]);
+      else
+        v8 = Win32AllocPoolWithQuotaTagZInit(Size, dword_BF9F191C[v4]);
+    }
+    v7 = v8;
+	....
+	....
+	....
+	....
+  }
+}
+</code></pre></div></div>
+<p>These memory management functions include:</p>
+<ul>
+  <li>DesktopAlloc function uses heap,</li>
+  <li>SharedAlloc function uses heap.</li>
+  <li>in32AllocPoolWithQuotaTagZInit, Win32AllocPoolWithTagZInit functions use pool.</li>
+</ul>
+
+<p>For example, a <code class="language-plaintext highlighter-rouge">Menu object</code> uses <code class="language-plaintext highlighter-rouge">DesktopAlloc</code>, while an <code class="language-plaintext highlighter-rouge">Accelerator</code> object uses <code class="language-plaintext highlighter-rouge">Kernel Pool</code>.</p>
+
+<p>For objects that use heap memory, when the object’s life ends, the OS calls <code class="language-plaintext highlighter-rouge">RtlFreeHeap</code> to free the used memory. However, after <code class="language-plaintext highlighter-rouge">RtlFreeHeap</code> returns, the freed memory still contains the old/valid contents. If another part of <code class="language-plaintext highlighter-rouge">win32k.sys</code> uses the freed memory, nothing will happen because it uses memory with old contents (no BSOD occurs), and the bug will be missed.</p>
+
+<p>Until now, researchers have typically discovered these types of bugs through reverse engineering. but if someone is fuzzing Win32k, they will miss vulnerabilities, due to having valid content even after free,They need to allocate a large amount of memory to ensure that the freed memory is reallocated with different content, which can trigger a crash. But how can one know when the OS will use the freed memory? and allocating memory in each iteration has runtime overhead.</p>
+
+<p>In user-mode code, we can use GFlags to enable PageHeap system-wide. This doesn’t affect the heap implementation in the kernel. There is also a “special pool” that can be enabled with the verifier, but it doesn’t help us with heap-based objects or memory.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gflags.exe /i iexplore.exe +hpa +ust to to enable the page Heap (HPA)
+</code></pre></div></div>
+<p>So, my idea is to patch <code class="language-plaintext highlighter-rouge">RtlFreeHeap</code> and fill the freed memory with invalid content, such as <code class="language-plaintext highlighter-rouge">0x0c0c0c0c</code>.</p>
+
+<p>With the help of the <code class="language-plaintext highlighter-rouge">RtlSizeHeap</code> function (thanks to @ponez ), we can find the size of heap object and fill it with <code class="language-plaintext highlighter-rouge">0x0c0c0c0c</code>.
+in alomst all cases the object contains a pointer to another object, so an pointer needs to be dereferenced, it means OS will dereference 0x0c0c0c0c address and we will get a kernel BSOD when it uses freed memory.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>__declspec(naked) my_function_detour_RtlFreeHeap()
+{
+	//PVOID  func=RtlSizeHeap;;
+	__asm
+	{		
+		// exec missing instructions
+		mov     edi,edi
+		push    ebp
+		mov     ebp,esp
+		push    ebx
+		mov     ebx,dword ptr [ebp+10h]
+		int 3;
+		/*
+		BOOLEAN	RtlFreeHeap
+		( 
+		IN PVOID  HeapHandle,
+		IN ULONG  Flags,
+		IN PVOID  HeapBase
+		); 
+		mov     ebx,dword ptr [ebp+10h] get HeapBase  
+		*/
+		PUSHAD
+		PUSH dword ptr [ebp+10h]
+		PUSH dword ptr [ebp+0Ch]
+		PUSH dword ptr [ebp+08h]
+		call RtlSizeHeap;
+		sub  ecx,ecx;
+		mov ecx, eax; // size from RtlSizeHeap
+		mov eax, 0x0c
+		mov edi, ebx; // address of heap chunk
+		rep stos byte ptr es:[edi]
+		POPAD
+}
+}
+</code></pre></div></div>
+<p>I tested my <a href="https://github.com/R00tkitSMM/Win32k-heap-sanitizer">Win32k heap sanitizer</a> detector with some old UAF vulnerabilities in Win32k and it worked like a charm.</p>
+
+
+  </div><a class="u-url" href="/fuzzing/2024/11/17/win32k-heap.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">My interesting researches</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">My interesting researches</li><li><a class="u-email" href="mailto:f at gmail.com">f at gmail.com</a></li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">R00tkitSMM</span></a></li><li><a href="https://www.twitter.com/R00tkitSMM"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#twitter"></use></svg> <span class="username">R00tkitSMM</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p>I share what I find interesting here..</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

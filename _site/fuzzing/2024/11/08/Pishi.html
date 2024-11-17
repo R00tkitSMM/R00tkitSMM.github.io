@@ -47,7 +47,7 @@
   </header>
 
   <div class="post-content e-content" itemprop="articleBody">
-    <p>This blog post is the result of some weekend research, where I delved into Pishi, a static macOS kernel binary rewriting tool.
+    <p>This blog post is the result of some weekend research, where I delved into <a href="https://www.quora.com/What-does-Hapoo-%D9%87%D8%A7%D9%BE%D9%88-and-Pishi-%D9%BE%DB%8C%D8%B4%DB%8C-means-in-Persian">Pishi</a>, a static macOS kernel binary rewriting tool.
 During the weekdays, I focus on Linux kernel security at my job and would rather not investigate the Windows kernel again, which leaves macOS/iOS as the only remaining option.</p>
 
 <p>In this blog post I will try to explain everything as clearly as possible so that even those who are not familiar with fuzzing can enjoy and understand it. I’ll break down the concepts, provide relatable examples, and resources, My goal is to make fuzzing approachable and interesting.
@@ -293,7 +293,7 @@ but we don’t know where does our KEXT will be loaded. therefore we don’t kno
 
 <p>At the same time I know something is wrong, we can’t just replace any random <code class="language-plaintext highlighter-rouge">xpacd</code> in target KEXT with a call to an imported function. as I explain in next lines.</p>
 
-<p>Calling imported functions is done through <code class="language-plaintext highlighter-rouge">__auth_stubs</code> and this stub will <a href="https://en.wikipedia.org/wiki/Clobbering">clobber</a> <code class="language-plaintext highlighter-rouge">X16</code>, <code class="language-plaintext highlighter-rouge">X17</code> and <code class="language-plaintext highlighter-rouge">LR</code> registers.
+<p>In Mach-O file format, Calling into imported functions is done through <code class="language-plaintext highlighter-rouge">__auth_stubs</code> and this stub will <a href="https://en.wikipedia.org/wiki/Clobbering">clobber</a> <code class="language-plaintext highlighter-rouge">X16</code>, <code class="language-plaintext highlighter-rouge">X17</code> and <code class="language-plaintext highlighter-rouge">LR</code> registers.
 A clobbered register is a register that gets altered or “trashed” by inline assembly code.
 When using inline assembly, we need to tell the compiler which registers are changed by using <a href="https://gcc.gnu.org/onlinedocs/gcc/extensions-to-the-c-language-family/how-to-use-inline-assembly-language-in-c-code.html#clobbers-and-scratch-registers">clobber arguments</a>. This helps the compiler avoid <a href="https://en.wikipedia.org/wiki/Register_allocation">allocating</a> those modified registers.</p>
 
@@ -471,18 +471,18 @@ Another key point is that <a href="https://developer.arm.com/documentation/dui00
 
 <p>this instructions will do:</p>
 <ol>
-  <li>Save the Link Register (LR). because we have to call a function to save the current context/registers. This call will clobber the <code class="language-plaintext highlighter-rouge">LR</code>, and _push_regs is too large to be as part of this trampoline.</li>
+  <li>Save the Link Register (LR). because we have to call a function to save the current context/registers. This call will clobber the <code class="language-plaintext highlighter-rouge">LR</code>, and <code class="language-plaintext highlighter-rouge">_push_regs</code> is too large to be as part of this trampoline.</li>
   <li>Save context/registers via <code class="language-plaintext highlighter-rouge">_push_regs</code>.</li>
   <li>Move BB’s ID( the address of the instrumented instruction) and KEXT’s ID number as arguments of <code class="language-plaintext highlighter-rouge">_sanitizer_cov_trace_pc</code>. we will write correct number in these placeholders in instrumentation time.</li>
   <li>Call <code class="language-plaintext highlighter-rouge">_sanitizer_cov_trace_pc</code> to collect the coverage.</li>
   <li>Restore the registers with <code class="language-plaintext highlighter-rouge">_pop_regs</code>.</li>
-  <li>Restore (LR).</li>
+  <li>Restore the Link Register (LR).</li>
   <li>Execute original instruction. this step is the reason that each instrumentation point needs its own trampoline.</li>
   <li>Jump back to next instruction of the patched adddress.</li>
 </ol>
 
 <p>As shown in the following image, our <code class="language-plaintext highlighter-rouge">extra KEXT</code> will include all the necessary functions, such as <code class="language-plaintext highlighter-rouge">_sanitizer_cov_trace_pc</code>, along with a large amount of trampolines.<br />
-We can use directives <code class="language-plaintext highlighter-rouge">.rept .endr</code> to sprays memory(not for <a href="https://en.wikipedia.org/wiki/Heap_spraying">exploitation</a> this time) with plenty of trampolines.
+We can use directives <code class="language-plaintext highlighter-rouge">.rept .endr</code> to spray memory(not for <a href="https://en.wikipedia.org/wiki/Heap_spraying">exploitation</a> this time) with plenty of trampolines.
 <a href="https://developer.arm.com/documentation/100068/0608/migrating-from-armasm-to-the-armclang-integrated-assembler/migration-of-armasm-macros-to-integrated-assembler-macros#:~:text=enclosed%20between%20a%20.-,rept%20and%20.,be%20used%20within%20a%20macro.">These directives</a> allow a sequence of instructions to be assembled repeatedly.</p>
 
 <p><img src="/assets/pishi/18.png" width="600" style="display: block; margin: 0 auto" /></p>
@@ -563,7 +563,7 @@ but this is not a edge coverage.</p>
     are different. For example, the edge B1-&gt;C1 only exists in path P1.
 </p>
 </div>
-<p>before we continue I have to say that what is happening under the hook for libFuzzer is way more complicated than this
+<p>before we continue I have to say that what is happening under the hood for libFuzzer is way more complicated than this
 you can read about it on <a href="https://cyruscyliu.github.io/posts/2021-11-02-libFuzzer-cov-control/#details-beneath-fsanitizefuzzer">details beneath fsanitizefuzzer</a> blog post.</p>
 
 <p>I’d like to briefly discuss <a href="https://github.com/googleprojectzero/CompareCoverage">compare shattering</a>(comparison unrolling) or sub-instruction profiling, which is associated with <code class="language-plaintext highlighter-rouge">Data flow coverage</code>.
@@ -571,7 +571,7 @@ Compare coverage is a method for simplifying complex comparisons in code into ea
 Imagine trying to guess a password. If each attempt results an access denied, it would take a long time to crack it. However, if you receive feedback for each character you guess, you can significantly speed up the process of finding the correct password.</p>
 
 <p>Compare coverage will change this comparison to the next <a href="https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html">nested if statements</a>.
-guessing one out of 0xffffffff possible numbers, narrowed down to 16 possible answers each time.</p>
+guessing one out of 0xffffffff possible numbers, narrowed down to 256 possible answers each time.</p>
 
 <figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="k">if</span> <span class="p">(</span><span class="n">input</span> <span class="o">==</span> <span class="mh">0xabad1dea</span><span class="p">)</span> <span class="p">{</span>
   <span class="cm">/* terribly buggy code */</span>
@@ -681,7 +681,7 @@ the question of whether an unconditional jump marks the end of a basic block is 
 <p><img src="/assets/pishi/31.png" width="300" style="display: block; margin: 0 auto" /></p>
 
 <p>We also classify basic blocks that contain a single <code class="language-plaintext highlighter-rouge">unconditional jump</code> or <code class="language-plaintext highlighter-rouge">ret</code> along with the <code class="language-plaintext highlighter-rouge">bti</code> instruction as a single-sized basic block or thunks.
-<code class="language-plaintext highlighter-rouge">bti</code> or <a href="https://en.wikipedia.org/wiki/Indirect_branch_tracking">branch target identification</a> instructions similatr to PAC are not part of the program’s intended behavior; there are emited by compiler to protect against <a href="https://en.wikipedia.org/wiki/Return-oriented_programming">Return-oriented programming</a>.
+<code class="language-plaintext highlighter-rouge">bti</code> or <a href="https://en.wikipedia.org/wiki/Indirect_branch_tracking">branch target identification</a> instructions similar to PAC are not part of the program’s intended behavior; there are emited by compiler to protect against <a href="https://en.wikipedia.org/wiki/Return-oriented_programming">Return-oriented programming</a>.
 <img src="/assets/pishi/bti.png" width="300" style="display: block; margin: 0 auto" /></p>
 
 <p>Furthermore <code class="language-plaintext highlighter-rouge">ldr</code> is relative instruction when its operand is a label.</p>
@@ -800,7 +800,7 @@ As you can see in the video, we will get a kernel panic in some seconds.</p>
 As you see, each time libFuzzer finds a new BB, it increments <code class="language-plaintext highlighter-rouge">ft:</code>, i.e., the features described earlier.</p>
 
 <h4 id="mission-accomplished">Mission accomplished!</h4>
-<p>At this point we have setup everything, we just need to instrument <code class="language-plaintext highlighter-rouge">com.apple.driver.AppleAVD</code> by some and enjoy our coverage-guided fuzzing of AppleAVD.<br />
+<p>At this point we have setup everything, we just need to instrument <code class="language-plaintext highlighter-rouge">com.apple.driver.AppleAVD</code> and enjoy our coverage-guided fuzzing of AppleAVD.<br />
 is’t this cool?</p>
 
 <figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><span class="n">LLVMFuzzerInitialize</span><span class="p">(</span><span class="kt">int</span> <span class="o">*</span><span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">***</span><span class="n">argv</span><span class="p">)</span>
@@ -953,7 +953,7 @@ otherwise it would have been super easy to <a href="https://liujunming.top/2021/
 but using VM is more generic way.</p>
 
 <h4 id="another-approach">Another approach?</h4>
-<p>I was considering an alternative approach If everything had failed, the well known method of replacing each BB of a target KEXT with a <a href="https://developer.arm.com/documentation/102120/0101/Debug-exceptions">breakpoint</a>, then boot a <code class="language-plaintext highlighter-rouge">Boot Kext Collection</code> with modified <a href="https://github.com/apple-oss-distributions/xnu/blob/8d741a5de7ff4191bf97d57b9f54c2f6d4a15585/osfmk/arm64/sleh.c#L909">EL1 exception handler</a> in XNU that would log and restore every trapped BBs.</p>
+<p>I was considering an alternative approach If everything had failed, the well known method of replacing each BB of a target KEXT with a <a href="https://developer.arm.com/documentation/102120/0101/Debug-exceptions">breakpoint</a> or an illegal instruction, then boot a <code class="language-plaintext highlighter-rouge">Boot Kext Collection</code> with modified <a href="https://github.com/apple-oss-distributions/xnu/blob/8d741a5de7ff4191bf97d57b9f54c2f6d4a15585/osfmk/arm64/sleh.c#L909">EL1 exception handler</a> in XNU that would log and restore every trapped BBs.</p>
 
 <p><a href="https://github.com/YungRaj/MacRootKit">MacRootKit</a> is also another (very good) promising way, it’s trying to boot XNU with <code class="language-plaintext highlighter-rouge">hypervisor.framework</code>, and with it’s own <a href="https://gist.github.com/imbushuo/51b09e61ecd7b7ac063853ad65cedf34">hypervisor</a> it can have full control over the system. it’s still a work in progress, to be able to boot XNU.</p>
 
