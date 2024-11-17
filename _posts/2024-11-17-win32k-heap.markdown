@@ -57,9 +57,9 @@ LABEL_28:
 }
   ```
 These memory management functions include:
-* DesktopAlloc function uses heap,
-* SharedAlloc function uses heap.
-* in32AllocPoolWithQuotaTagZInit, Win32AllocPoolWithTagZInit functions use pool.
+* `DesktopAlloc` function uses heap,
+* `SharedAlloc` function uses heap.
+* `Win32AllocPoolWithQuotaTagZInit`, `Win32AllocPoolWithTagZInit` functions use pool.
 
 For example, a `Menu object` uses `DesktopAlloc`, while an `Accelerator` object uses `Kernel Pool`.
 
