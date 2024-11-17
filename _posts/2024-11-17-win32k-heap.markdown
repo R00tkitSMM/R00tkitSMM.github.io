@@ -74,7 +74,7 @@ gflags.exe /i iexplore.exe +hpa +ust to to enable the page Heap (HPA)
 So, my idea is to patch `RtlFreeHeap` and fill the freed memory with invalid content, such as `0x0c0c0c0c`.
 
 With the help of the `RtlSizeHeap` function (thanks to @ponez ), we can find the size of heap object and fill it with `0x0c0c0c0c`.
-in alomst all cases the object contains a pointer to another object, so an pointer needs to be dereferenced, it means OS will dereference 0x0c0c0c0c address and we will get a kernel BSOD when it uses freed memory.
+in alomst all cases the object contains a pointer to another object, so an pointer needs to be dereferenced, it means OS will dereference `0x0c0c0c0c` address and we will get a kernel BSOD when it uses freed memory.
 
 ```
 __declspec(naked) my_function_detour_RtlFreeHeap()
