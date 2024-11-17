@@ -11,7 +11,7 @@ fast forward to 2024, and we now have [KASAN integrated into the Windows kernel]
 
 #### Original content:
 
-In recent times, 0-day kernel vulnerabilities have become more valuable due to the limitations imposed by sandboxes. Every RCE exploit now requires an additional phase to bypass these restrictions in order to achieve full system access.
+In recent times, Windows kernel vulnerabilities have become more valuable due to the limitations imposed by sandboxes. Every RCE exploit now requires an additional phase to bypass these restrictions in order to achieve full system access.
 
 Many local privilege escalation vulnerabilities are based on flaws in `Win32k`, particularly how it handles or uses objects. In most cases, `Win32k` uses freed memory, leading to use-after-free vulnerabilities.
 
@@ -65,9 +65,9 @@ For example, a `Menu object` uses `DesktopAlloc`, while an `Accelerator` object 
 
 For objects that use heap memory, when the object's life ends, the OS calls `RtlFreeHeap` to free the used memory. However, after `RtlFreeHeap` returns, the freed memory still contains the old/valid contents. If another part of `win32k.sys` uses the freed memory, nothing will happen because it uses memory with old contents (no BSOD occurs), and the bug will be missed.
 
-Until now, researchers have typically discovered these types of bugs through reverse engineering. but if someone is fuzzing Win32k, they will miss vulnerabilities, due to having valid content even after free,They need to allocate a large amount of memory to ensure that the freed memory is reallocated with different content, which can trigger a crash. But how can one know when the OS will use the freed memory? and allocating memory in each iteration has runtime overhead.
+Until now, researchers have typically discovered these types of bugs through reverse engineering. but if someone is fuzzing Win32k, they will miss vulnerabilities, due to having valid content even after free, They need to allocate a large amount of memory to ensure that the freed memory is reallocated with different content, which can trigger a crash. But how can one know when the OS will use the freed memory? and allocating memory in each iteration has runtime overhead.
 
-In user-mode code, we can use GFlags to enable PageHeap system-wide. This doesn't affect the heap implementation in the kernel. There is also a "special pool" that can be enabled with the verifier, but it doesn't help us with heap-based objects or memory.
+In user-mode code, we can use GFlags to enable PageHeap system-wide. This doesn't affect the heap implementation in the kernel. There is also a `special pool` that can be enabled with the verifier, but it doesn't help us with heap-based objects or memory.
 ```
 gflags.exe /i iexplore.exe +hpa +ust to to enable the page Heap (HPA)
 ```
