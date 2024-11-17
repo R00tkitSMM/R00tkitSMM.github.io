@@ -11,7 +11,7 @@ fast forward to 2024, and we now have [KASAN integrated into the Windows kernel]
 
 #### Original content:
 
-In recent times, Windows kernel vulnerabilities have become more valuable due to the limitations imposed by sandboxes. Every RCE exploit now requires an additional phase to bypass these restrictions in order to achieve full system access.
+In recent days, Windows kernel vulnerabilities have become more valuable due to the limitations imposed by sandboxes. Every RCE exploit now requires an additional phase to bypass these restrictions in order to achieve full system access.
 
 Many local privilege escalation vulnerabilities are based on flaws in `Win32k`, particularly how it handles or uses objects. In most cases, `Win32k` uses freed memory, leading to use-after-free vulnerabilities.
 
