@@ -67,7 +67,7 @@ For objects that use heap memory, when the object's life ends, the OS calls `Rtl
 
 Until now, researchers have typically discovered these types of bugs through reverse engineering. but if someone is fuzzing Win32k, they will miss vulnerabilities, due to having valid content even after free, They need to allocate a large amount of memory to ensure that the freed memory is reallocated with different content, which can trigger a crash. But how can one know when the OS will use the freed memory? and allocating memory in each iteration has runtime overhead.
 
-In user-mode code, we can use GFlags to enable PageHeap system-wide. This doesn't affect the heap implementation in the kernel. There is also a `special pool` that can be enabled with the verifier, but it doesn't help us with heap-based objects or memory.
+In user-mode code, we can use GFlags to enable PageHeap system-wide. This doesn't affect the heap implementation in the kernel. There is also a `special pool` that can be enabled with the verifier, but it doesn't help us with heap-based objects.
 ```
 gflags.exe /i iexplore.exe +hpa +ust to to enable the page Heap (HPA)
 ```
