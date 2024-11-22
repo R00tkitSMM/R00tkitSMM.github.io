@@ -9,14 +9,14 @@ you can find some of my old exploits I have written in [here](https://github.com
 
 Some vulnerabilities I've reported include an intriguing story behind them. for example CVE-2016-0040, which you can read in [ Microsoft's blog post]( https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/)
 
-and story of a vulnerability collision with in the wild exploits in the CVE-2022-22587(iOS/macOS kernel memory corruption), media and news coverages: 
+And story of a vulnerability collision with in the wild exploits in the CVE-2022-22587(iOS/macOS kernel memory corruption), media and news coverages: 
 * [The Hacker News](  https://thehackernews.com/2022/12/new-actively-exploited-zero-day.html)
 * [Google Project Zero 1](https://googleprojectzero.blogspot.com/2022/06/2022-0-day-in-wild-exploitationso-far.html)
 * [Google Project Zero 2](https://googleprojectzero.blogspot.com/2022/04/the-more-you-know-more-you-know-you.html)
 * [SecurityWeek](https://www.securityweek.com/google-half-2022s-zero-days-are-variants-previous-vulnerabilities/)
 
 
-I also became one of [the MSRC’s 2020 Most Valuable Security Researchers( ranked #40)](https://msrc.microsoft.com/blog/2020/08/announcing-2020-msrc-most-valuable-security-researchers/)
+I also became one of [the Microsoft’s 2020 Most Valuable Security Researchers( ranked #40)](https://msrc.microsoft.com/blog/2020/08/announcing-2020-msrc-most-valuable-security-researchers/)
 
 
 | CVE              | Description                                                                      | Source                                        |
