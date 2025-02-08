@@ -4,7 +4,7 @@ title: About
 permalink: /about/
 ---
 
-I [Meysam](https://x.com/R00tkitSMM), a software security researcher, with expertise in hypervisors, Windows, Unix-based systems, and XNU(macOS and iOS)
+I'm [Meysam](https://x.com/R00tkitSMM), a software security researcher, with expertise in hypervisors, Windows, Unix-based systems, and XNU(macOS and iOS)
 you can find some of my old exploits I have written in [here](https://github.com/Rootkitsmm-zz) and [here](https://github.com/R00tkitsmm)
 
 Some vulnerabilities I've reported include an intriguing story behind them. for example CVE-2016-0040, which you can read in [ Microsoft's blog post]( https://msrc.microsoft.com/blog/2017/06/tales-from-the-msrc-from-pixels-to-poc/)
