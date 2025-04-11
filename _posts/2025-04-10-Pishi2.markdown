@@ -14,6 +14,7 @@ Fuzzers send inputs to a program and monitor it for [segmentation faults]((https
 Not only fault detection has always been a challenge and a [subject](https://www.s3.eurecom.fr/docs/ndss18_muench.pdf) of study in fuzzing, and as [lcamtuf](https://lcamtuf.blogspot.com/2014/11/afl-fuzz-crash-exploration-mode.html) tells, one of the most labor-intensive portions of any fuzzing project is the work needed to determine if a particular crash poses a security risk.
 
 In the second part of the series, I plan to discuss about memory error detectors or [sanitizer](https://en.wikipedia.org/wiki/Code_sanitizer ) which are tools and methods to increase the likelihood of triggering a crash in the case of a bug or vulnerability and our approach to implementing a binary-only [address sanitizer](https://github.com/google/sanitizers/wiki/addresssanitizer) for macOS KEXT.
+I also presneted this project at [zer0con2025](https://zer0con.org/#archives-section).
 
 XNU has a KASAN build (will describe this later) in KDK, or even you can build a KASAN version of it, but KEXTs are not included. So, whenever you fuzz a KEXT, a vulnerability may go unnoticed. This is why I decided to work on this project.
 
