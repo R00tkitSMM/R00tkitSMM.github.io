@@ -867,6 +867,7 @@ void instrument_kasan()
 }
 {% endhighlight %}
 
+<img src="/assets/pishi2/kasan_rewrite.png"  width="350"  style="display: block; margin: 0 auto">
 
 I have tested Pishi's binary-KASAN with several KEXTs, including `APFS`. By combining it with our code coverage, we can achieve effective fuzzing.
 
