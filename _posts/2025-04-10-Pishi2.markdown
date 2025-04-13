@@ -370,7 +370,10 @@ XNU sets up the shadow memory in `arm_vm_init` for KASAN builds, which end up ca
 At this point, everything required to have a working software tag-based KASAN is described, `Pointer tagging` while allocating memory,
 `Shadow memory` mapping in the Page table at boot time and read/write instrumentation of instructions to check the tag and verify if it matches the shadow memory, which happens in the build time with help of LLVM and only for XNU.
 
-Based on this knowledge, I aimed to implement all these ideas (e.g., enabling TBI, allocating shadow memory, and tagging pointers during allocations by hooking memory allocate functions) in my KEXT. However, I remembered that we have the KASAN build of the kernel in the KDK. why not using it?
+Based on this knowledge, I aimed to implement all these ideas (e.g., enabling TBI, allocating shadow memory, and tagging pointers during allocations by hooking memory allocate functions) in my KEXT.
+
+<img src="/assets/pishi2/kasan_kernel.png"  width="350"  style="display: block; margin: 0 auto">
+However, I remembered that we have the KASAN build of the kernel in the KDK. why not using it?
 I booted the KASAN kernel with my KEXT, allocated some memory using `IOMalloc` and `IOMallocData`, and applied the same logic to locate the shadow memory and verify the tag. unsurprisingly, it worked as expected.
 {% highlight cpp %}
 
