@@ -49,7 +49,7 @@ I also became one of [the Microsoft’s 2020 Most Valuable Security Researchers(
 | CVE-2024-27804   | iOS kernel Memory Corruption. Impact: Arbitrary code execution with kernel privileges | [Apple Support](https://support.apple.com/en-gb/HT214101)            
 |  CVE-2024-39463  | Linux Kernel Memory Corruption.  Impact: Arbitrary code execution with kernel privileges |[Linux kernel](https://github.com/torvalds/linux/commit/c898afdc15645efb555acb6d85b484eb40a45409) 
 | CVE-2024-27802   | iOS/macOS Impact: Processing a maliciously crafted file may lead to arbitrary code execution |[Apple Support](https://support.apple.com/en-us/HT214101) 
-| CVE-2025-27062	 | Memory corruption while handling client exceptions, allowing unauthorized channel access. |[Qualcomm](https://docs.qualcomm.com/product/publicresources/securitybulletin/august-2025-bulletin.html)
+| CVE-2025-27062	 | Memory corruption while handling client exceptions, allowing unauthorized channel access. leads to Kernel Privilege escalation  |[Qualcomm](https://docs.qualcomm.com/product/publicresources/securitybulletin/august-2025-bulletin.html)
 
 
 
